@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 use pyo3::{exceptions::PyValueError, PyResult};
 
 use crate::errors::ConnectorXPythonError;
+use crate::pool::PyConnectionPool;
 use pyo3::types::PyDict;
 
 #[derive(FromPyObject)]
@@ -40,6 +41,7 @@ pub fn read_sql<'py>(
     queries: Option<Vec<String>>,
     partition_query: Option<PyPartitionQuery>,
     pre_execution_queries: Option<Vec<String>>,
+    pool: Option<&PyConnectionPool>,
     kwargs: Option<&Bound<PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let source_conn = parse_source(conn, protocol).map_err(|e| ConnectorXPythonError::from(e))?;
@@ -66,6 +68,7 @@ pub fn read_sql<'py>(
             origin_query,
             &queries,
             pre_execution_queries.as_deref(),
+            pool,
         )?),
         "arrow" => Ok(crate::arrow::write_arrow(
             py,
@@ -73,6 +76,7 @@ pub fn read_sql<'py>(
             origin_query,
             &queries,
             pre_execution_queries.as_deref(),
+            pool,
         )?),
         "arrow_stream" => {
             let batch_size = kwargs
@@ -87,6 +91,7 @@ pub fn read_sql<'py>(
                 &queries,
                 pre_execution_queries.as_deref(),
                 batch_size,
+                pool,
             )?)
         }
 

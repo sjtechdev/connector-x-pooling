@@ -12,6 +12,7 @@ from .connectorx import (
     partition_sql as _partition_sql,
     read_sql2 as _read_sql2,
     get_meta as _get_meta,
+    PyConnectionPool as ConnectionPool,
 )
 
 if TYPE_CHECKING:
@@ -262,7 +263,7 @@ def read_sql(
 
 
 def read_sql(
-    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl],
+    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl] | ConnectionPool,
     query: list[str] | str,
     *,
     return_type: Literal[
@@ -284,7 +285,8 @@ def read_sql(
     Parameters
     ==========
     conn
-      the connection string, or dict of connection string mapping for a federated query.
+      the connection string, ConnectionPool object, or dict of connection string mapping for a federated query.
+      When using ConnectionPool, connections are reused across multiple read_sql calls for better performance.
     query
       a SQL query or a list of SQL queries.
     return_type
@@ -297,7 +299,7 @@ def read_sql(
     partition_range
       the value range of the partition column.
     partition_num
-      how many partitions to generate.
+      how many partitions to generate. When using ConnectionPool, partition_num must not exceed pool max_size.
     index_col
       the index column to set; only applicable for return type "pandas", "modin", "dask".
     strategy
@@ -329,6 +331,19 @@ def read_sql(
     >>> read_sql(postgres_url, queries)
 
     """
+    # Handle ConnectionPool
+    pool_obj = None
+    if isinstance(conn, ConnectionPool):
+        if conn.is_closed:
+            raise ValueError("Cannot use a closed ConnectionPool. Please create a new pool or use a context manager.")
+        if partition_num and partition_num > conn.max_size:
+            raise ValueError(
+                f"partition_num ({partition_num}) exceeds pool max_size ({conn.max_size}). "
+                f"Either reduce partition_num or increase pool max_size."
+            )
+        pool_obj = conn
+        conn = pool_obj.conn_str
+
     if isinstance(query, list) and len(query) == 1:
         query = query[0]
         query = remove_ending_semicolon(query)
@@ -400,6 +415,7 @@ def read_sql(
             protocol=protocol,
             partition_query=partition_query,
             pre_execution_queries=pre_execution_queries,
+            pool=pool_obj,
         )
         df = reconstruct_pandas(result)
 
@@ -423,6 +439,7 @@ def read_sql(
             protocol=protocol,
             partition_query=partition_query,
             pre_execution_queries=pre_execution_queries,
+            pool=pool_obj,
         )
 
         df = reconstruct_arrow(result)
@@ -442,7 +459,8 @@ def read_sql(
             protocol=protocol,
             partition_query=partition_query,
             pre_execution_queries=pre_execution_queries,
-            batch_size=batch_size
+            batch_size=batch_size,
+            pool=pool_obj,
         )
 
         df = reconstruct_arrow_rb(result)
