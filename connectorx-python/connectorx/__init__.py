@@ -169,7 +169,7 @@ def read_sql_pandas(
 # default return pd.DataFrame
 @overload
 def read_sql(
-    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl],
+    conn: str | ConnectionUrl | ConnectionPool | dict[str, str] | dict[str, ConnectionUrl],
     query: list[str] | str,
     *,
     protocol: Protocol | None = None,
@@ -184,7 +184,7 @@ def read_sql(
 
 @overload
 def read_sql(
-    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl],
+    conn: str | ConnectionUrl | ConnectionPool | dict[str, str] | dict[str, ConnectionUrl],
     query: list[str] | str,
     *,
     return_type: Literal["pandas"],
@@ -200,7 +200,7 @@ def read_sql(
 
 @overload
 def read_sql(
-    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl],
+    conn: str | ConnectionUrl | ConnectionPool | dict[str, str] | dict[str, ConnectionUrl],
     query: list[str] | str,
     *,
     return_type: Literal["arrow"],
@@ -216,7 +216,7 @@ def read_sql(
 
 @overload
 def read_sql(
-    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl],
+    conn: str | ConnectionUrl | ConnectionPool | dict[str, str] | dict[str, ConnectionUrl],
     query: list[str] | str,
     *,
     return_type: Literal["modin"],
@@ -232,7 +232,7 @@ def read_sql(
 
 @overload
 def read_sql(
-    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl],
+    conn: str | ConnectionUrl | ConnectionPool | dict[str, str] | dict[str, ConnectionUrl],
     query: list[str] | str,
     *,
     return_type: Literal["dask"],
@@ -248,7 +248,7 @@ def read_sql(
 
 @overload
 def read_sql(
-    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl],
+    conn: str | ConnectionUrl | ConnectionPool | dict[str, str] | dict[str, ConnectionUrl],
     query: list[str] | str,
     *,
     return_type: Literal["polars"],
@@ -263,7 +263,7 @@ def read_sql(
 
 
 def read_sql(
-    conn: str | ConnectionUrl | dict[str, str] | dict[str, ConnectionUrl] | ConnectionPool,
+    conn: str | ConnectionUrl | ConnectionPool | dict[str, str] | dict[str, ConnectionUrl],
     query: list[str] | str,
     *,
     return_type: Literal[
@@ -342,13 +342,18 @@ def read_sql(
                 f"Either reduce partition_num or increase pool max_size."
             )
         pool_obj = conn
-        conn = pool_obj.conn_str
+        conn = ""  # actual conn string is extracted from the pool on the Rust side
 
     if isinstance(query, list) and len(query) == 1:
         query = query[0]
         query = remove_ending_semicolon(query)
 
     if isinstance(conn, dict):
+        if pool_obj is not None:
+            raise ValueError(
+                "ConnectionPool is not supported with federated queries. "
+                "Pass individual connection strings in the dict instead."
+            )
         assert partition_on is None and isinstance(
             query, str
         ), "Federated query does not support query partitioning for now"

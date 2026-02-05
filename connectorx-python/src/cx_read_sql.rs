@@ -44,6 +44,7 @@ pub fn read_sql<'py>(
     pool: Option<&PyConnectionPool>,
     kwargs: Option<&Bound<PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
+    let conn = pool.map(|p| p.conn_str.as_str()).unwrap_or(conn);
     let source_conn = parse_source(conn, protocol).map_err(|e| ConnectorXPythonError::from(e))?;
     let (queries, origin_query) = match (queries, partition_query) {
         (Some(queries), None) => (queries.into_iter().map(CXQuery::Naked).collect(), None),

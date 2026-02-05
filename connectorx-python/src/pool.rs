@@ -38,6 +38,26 @@ impl Default for PoolConfig {
     }
 }
 
+/// Applies the shared pool configuration to an r2d2 builder, returning the configured builder.
+fn configure_builder<M: r2d2::ManageConnection>(
+    builder: r2d2::Builder<M>,
+    config: &PoolConfig,
+) -> r2d2::Builder<M> {
+    let mut builder = builder
+        .max_size(config.max_size)
+        .connection_timeout(config.connection_timeout);
+    if let Some(timeout) = config.idle_timeout {
+        builder = builder.idle_timeout(Some(timeout));
+    }
+    if let Some(lifetime) = config.max_lifetime {
+        builder = builder.max_lifetime(Some(lifetime));
+    }
+    if config.test_on_check_out {
+        builder = builder.test_on_check_out(true);
+    }
+    builder
+}
+
 /// Internal enum holding the actual pool for each database type
 pub enum PoolVariant {
     MySQL(Arc<Pool<MySqlConnectionManager>>),
@@ -51,7 +71,7 @@ pub enum PoolVariant {
 #[pyclass]
 pub struct PyConnectionPool {
     pool: Mutex<Option<PoolVariant>>,
-    conn_str: String,
+    pub conn_str: String,
     max_size: u32,
 }
 
@@ -88,21 +108,8 @@ impl PyConnectionPool {
                             .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("MySQL URL parsing error: {}", e)))?
                     )
                 );
-                let mut builder = r2d2::Pool::builder()
-                    .max_size(config.max_size)
-                    .connection_timeout(config.connection_timeout);
-
-                if let Some(timeout) = config.idle_timeout {
-                    builder = builder.idle_timeout(Some(timeout));
-                }
-                if let Some(lifetime) = config.max_lifetime {
-                    builder = builder.max_lifetime(Some(lifetime));
-                }
-                if config.test_on_check_out {
-                    builder = builder.test_on_check_out(true);
-                }
-
-                let pool = builder.build(manager)
+                let pool = configure_builder(r2d2::Pool::builder(), &config)
+                    .build(manager)
                     .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("MySQL pool creation error: {}", e)))?;
                 PoolVariant::MySQL(Arc::new(pool))
             }
@@ -113,41 +120,15 @@ impl PyConnectionPool {
                 match tls {
                     Some(tls_conn) => {
                         let manager = PostgresConnectionManager::new(pg_config, tls_conn);
-                        let mut builder = r2d2::Pool::builder()
-                            .max_size(config.max_size)
-                            .connection_timeout(config.connection_timeout);
-
-                        if let Some(timeout) = config.idle_timeout {
-                            builder = builder.idle_timeout(Some(timeout));
-                        }
-                        if let Some(lifetime) = config.max_lifetime {
-                            builder = builder.max_lifetime(Some(lifetime));
-                        }
-                        if config.test_on_check_out {
-                            builder = builder.test_on_check_out(true);
-                        }
-
-                        let pool = builder.build(manager)
+                        let pool = configure_builder(r2d2::Pool::builder(), &config)
+                            .build(manager)
                             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Postgres pool creation error: {}", e)))?;
                         PoolVariant::PostgresTls(Arc::new(pool))
                     }
                     None => {
                         let manager = PostgresConnectionManager::new(pg_config, NoTls);
-                        let mut builder = r2d2::Pool::builder()
-                            .max_size(config.max_size)
-                            .connection_timeout(config.connection_timeout);
-
-                        if let Some(timeout) = config.idle_timeout {
-                            builder = builder.idle_timeout(Some(timeout));
-                        }
-                        if let Some(lifetime) = config.max_lifetime {
-                            builder = builder.max_lifetime(Some(lifetime));
-                        }
-                        if config.test_on_check_out {
-                            builder = builder.test_on_check_out(true);
-                        }
-
-                        let pool = builder.build(manager)
+                        let pool = configure_builder(r2d2::Pool::builder(), &config)
+                            .build(manager)
                             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Postgres pool creation error: {}", e)))?;
                         PoolVariant::PostgresNoTls(Arc::new(pool))
                     }
@@ -160,21 +141,8 @@ impl PyConnectionPool {
                     .into_owned();
                 let manager = SqliteConnectionManager::file(decoded_conn);
 
-                let mut builder = r2d2::Pool::builder()
-                    .max_size(config.max_size)
-                    .connection_timeout(config.connection_timeout);
-
-                if let Some(timeout) = config.idle_timeout {
-                    builder = builder.idle_timeout(Some(timeout));
-                }
-                if let Some(lifetime) = config.max_lifetime {
-                    builder = builder.max_lifetime(Some(lifetime));
-                }
-                if config.test_on_check_out {
-                    builder = builder.test_on_check_out(true);
-                }
-
-                let pool = builder.build(manager)
+                let pool = configure_builder(r2d2::Pool::builder(), &config)
+                    .build(manager)
                     .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("SQLite pool creation error: {}", e)))?;
                 PoolVariant::SQLite(Arc::new(pool))
             }
@@ -188,21 +156,8 @@ impl PyConnectionPool {
                     .map_err(|e| ConnectorXPythonError::from(e))?;
                 let manager = OracleConnectionManager::from_connector(connector);
 
-                let mut builder = r2d2::Pool::builder()
-                    .max_size(config.max_size)
-                    .connection_timeout(config.connection_timeout);
-
-                if let Some(timeout) = config.idle_timeout {
-                    builder = builder.idle_timeout(Some(timeout));
-                }
-                if let Some(lifetime) = config.max_lifetime {
-                    builder = builder.max_lifetime(Some(lifetime));
-                }
-                if config.test_on_check_out {
-                    builder = builder.test_on_check_out(true);
-                }
-
-                let pool = builder.build(manager)
+                let pool = configure_builder(r2d2::Pool::builder(), &config)
+                    .build(manager)
                     .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Oracle pool creation error: {}", e)))?;
                 PoolVariant::Oracle(Arc::new(pool))
             }
@@ -230,12 +185,6 @@ impl PyConnectionPool {
     #[getter]
     pub fn is_closed(&self) -> bool {
         self.pool.lock().is_none()
-    }
-
-    /// Get the connection string
-    #[getter]
-    pub fn conn_str(&self) -> String {
-        self.conn_str.clone()
     }
 
     /// Get the max pool size
