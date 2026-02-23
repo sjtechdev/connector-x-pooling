@@ -81,31 +81,18 @@ pub fn connect_oracle(conn: &Url) -> Connector {
 
 impl OracleSource {
     #[throws(OracleSourceError)]
-    pub fn new(conn: &str, nconn: usize) -> Self {
-        Self::new_with_pool(conn, nconn, None)?
-    }
-
-    #[throws(OracleSourceError)]
-    pub fn new_with_pool(
-        conn: &str,
-        nconn: usize,
-        existing_pool: Option<Arc<Pool<OracleManager>>>,
-    ) -> Self {
+    pub fn new(conn: &str, nconn: usize, pool: Option<Arc<Pool<OracleManager>>>) -> Self {
         let conn_url = Url::parse(conn)?;
         let params: HashMap<String, String> = conn_url.query_pairs().into_owned().collect();
         let current_schema = params.get("schema").cloned();
-
-        let pool = match existing_pool {
+        let pool = match pool {
             Some(p) => p,
             None => {
                 let connector = connect_oracle(&conn_url)?;
                 let manager = OracleConnectionManager::from_connector(connector);
-                Arc::new(r2d2::Pool::builder()
-                    .max_size(nconn as u32)
-                    .build(manager)?)
+                Arc::new(r2d2::Pool::builder().max_size(nconn as u32).build(manager)?)
             }
         };
-
         Self {
             pool,
             origin_query: None,

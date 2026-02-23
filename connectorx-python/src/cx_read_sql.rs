@@ -1,5 +1,6 @@
 use connectorx::{
     partition::{partition, PartitionQuery},
+    pool::PoolVariant,
     source_router::parse_source,
     sql::CXQuery,
 };
@@ -62,6 +63,15 @@ pub fn read_sql<'py>(
         )),
     };
 
+    // Resolve to a single PoolVariant early: either extract from the provided PyConnectionPool,
+    // or create one from the connection string (returns None for MSSQL/BigQuery/Trino).
+    let inner_pool: Option<PoolVariant> = match pool {
+        Some(p) => p.get_pool_variant(),
+        None => PoolVariant::from_source_conn(&source_conn, queries.len() as u32)
+            .map_err(ConnectorXPythonError::Other)?,
+    };
+    let pool_ref = inner_pool.as_ref();
+
     match return_type {
         "pandas" => Ok(crate::pandas::write_pandas(
             py,
@@ -69,7 +79,7 @@ pub fn read_sql<'py>(
             origin_query,
             &queries,
             pre_execution_queries.as_deref(),
-            pool,
+            pool_ref,
         )?),
         "arrow" => Ok(crate::arrow::write_arrow(
             py,
@@ -77,7 +87,7 @@ pub fn read_sql<'py>(
             origin_query,
             &queries,
             pre_execution_queries.as_deref(),
-            pool,
+            pool_ref,
         )?),
         "arrow_stream" => {
             let batch_size = kwargs
@@ -92,7 +102,7 @@ pub fn read_sql<'py>(
                 &queries,
                 pre_execution_queries.as_deref(),
                 batch_size,
-                pool,
+                pool_ref,
             )?)
         }
 

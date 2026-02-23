@@ -36,28 +36,16 @@ pub struct SQLiteSource {
 
 impl SQLiteSource {
     #[throws(SQLiteSourceError)]
-    pub fn new(conn: &str, nconn: usize) -> Self {
-        Self::new_with_pool(conn, nconn, None)?
-    }
-
-    #[throws(SQLiteSourceError)]
-    pub fn new_with_pool(
-        conn: &str,
-        nconn: usize,
-        existing_pool: Option<Arc<Pool<SqliteConnectionManager>>>,
-    ) -> Self {
-        let pool = match existing_pool {
+    pub fn new(conn: &str, nconn: usize, pool: Option<Arc<Pool<SqliteConnectionManager>>>) -> Self {
+        let pool = match pool {
             Some(p) => p,
             None => {
                 let decoded_conn = decode(conn)?.into_owned();
                 debug!("decoded conn: {}", decoded_conn);
                 let manager = SqliteConnectionManager::file(decoded_conn);
-                Arc::new(r2d2::Pool::builder()
-                    .max_size(nconn as u32)
-                    .build(manager)?)
+                Arc::new(r2d2::Pool::builder().max_size(nconn as u32).build(manager)?)
             }
         };
-
         Self {
             pool,
             origin_query: None,

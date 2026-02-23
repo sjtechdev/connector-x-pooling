@@ -1,7 +1,7 @@
 use crate::errors::ConnectorXPythonError;
-use crate::pool::PyConnectionPool;
 use anyhow::anyhow;
 use arrow::record_batch::RecordBatch;
+use connectorx::pool::PoolVariant;
 use connectorx::source_router::SourceConn;
 use connectorx::{prelude::*, sql::CXQuery};
 use fehler::throws;
@@ -86,28 +86,11 @@ pub fn write_arrow<'py>(
     origin_query: Option<String>,
     queries: &[CXQuery<String>],
     pre_execution_queries: Option<&[String]>,
-    pool: Option<&PyConnectionPool>,
+    pool: Option<&PoolVariant>,
 ) -> Bound<'py, PyAny> {
     let ptrs = py.detach(
         || -> Result<(Vec<String>, Vec<Vec<(uintptr_t, uintptr_t)>>), ConnectorXPythonError> {
-            // Extract pools for each database type
-            let pg_pool_notls = pool.and_then(|p| p.get_postgres_notls_pool());
-            let pg_pool_tls = pool.and_then(|p| p.get_postgres_tls_pool());
-            let mysql_pool = pool.and_then(|p| p.get_mysql_pool());
-            let sqlite_pool = pool.and_then(|p| p.get_sqlite_pool());
-            let oracle_pool = pool.and_then(|p| p.get_oracle_pool());
-
-            let destination = get_arrow(
-                source_conn,
-                origin_query,
-                queries,
-                pre_execution_queries,
-                pg_pool_notls,
-                pg_pool_tls,
-                mysql_pool,
-                sqlite_pool,
-                oracle_pool,
-            )?;
+            let destination = get_arrow(source_conn, origin_query, queries, pre_execution_queries, pool)?;
             let rbs = destination.arrow()?;
             Ok(to_ptrs(rbs))
         },
@@ -124,26 +107,15 @@ pub fn get_arrow_rb_iter<'py>(
     queries: &[CXQuery<String>],
     pre_execution_queries: Option<&[String]>,
     batch_size: usize,
-    pool: Option<&PyConnectionPool>,
+    pool: Option<&PoolVariant>,
 ) -> Bound<'py, PyAny> {
-    // Extract pools for each database type
-    let pg_pool_notls = pool.and_then(|p| p.get_postgres_notls_pool());
-    let pg_pool_tls = pool.and_then(|p| p.get_postgres_tls_pool());
-    let mysql_pool = pool.and_then(|p| p.get_mysql_pool());
-    let sqlite_pool = pool.and_then(|p| p.get_sqlite_pool());
-    let oracle_pool = pool.and_then(|p| p.get_oracle_pool());
-
     let mut arrow_iter: Box<dyn RecordBatchIterator> = new_record_batch_iter(
         source_conn,
         origin_query,
         queries,
         batch_size,
         pre_execution_queries,
-        pg_pool_notls,
-        pg_pool_tls,
-        mysql_pool,
-        sqlite_pool,
-        oracle_pool,
+        pool,
     );
 
     arrow_iter.prepare();

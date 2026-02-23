@@ -57,26 +57,15 @@ pub struct MySQLSource<P> {
 
 impl<P> MySQLSource<P> {
     #[throws(MySQLSourceError)]
-    pub fn new(conn: &str, nconn: usize) -> Self {
-        Self::new_with_pool(conn, nconn, None)?
-    }
-
-    #[throws(MySQLSourceError)]
-    pub fn new_with_pool(
-        conn: &str,
-        nconn: usize,
-        existing_pool: Option<Arc<Pool<MySqlConnectionManager>>>,
-    ) -> Self {
-        let pool = match existing_pool {
+    pub fn new(conn: &str, nconn: usize, pool: Option<Arc<Pool<MySqlConnectionManager>>>) -> Self {
+        let pool = match pool {
             Some(p) => p,
             None => {
-                let manager = MySqlConnectionManager::new(OptsBuilder::from_opts(Opts::from_url(conn)?));
-                Arc::new(r2d2::Pool::builder()
-                    .max_size(nconn as u32)
-                    .build(manager)?)
+                let manager =
+                    MySqlConnectionManager::new(OptsBuilder::from_opts(Opts::from_url(conn)?));
+                Arc::new(r2d2::Pool::builder().max_size(nconn as u32).build(manager)?)
             }
         };
-
         Self {
             pool,
             origin_query: None,

@@ -57,10 +57,6 @@ pub fn run(
                         queries.as_slice(),
                         None,
                         None,
-                        None,
-                        None,
-                        None,
-                        None,
                     )?;
                     let rbs = destination.arrow()?;
 

@@ -1,18 +1,16 @@
 use parking_lot::Mutex;
 use pyo3::prelude::*;
-use r2d2::Pool;
 use std::sync::Arc;
 use std::time::Duration;
 
+use connectorx::pool::PoolVariant;
 use connectorx::source_router::parse_source;
 use connectorx::sources::postgres::rewrite_tls_args;
 use postgres::NoTls;
-use postgres_openssl::MakeTlsConnector;
 use r2d2_mysql::MySqlConnectionManager;
+use r2d2_oracle::OracleConnectionManager;
 use r2d2_postgres::PostgresConnectionManager;
 use r2d2_sqlite::SqliteConnectionManager;
-
-use r2d2_oracle::OracleConnectionManager;
 
 use crate::errors::ConnectorXPythonError;
 
@@ -56,15 +54,6 @@ fn configure_builder<M: r2d2::ManageConnection>(
         builder = builder.test_on_check_out(true);
     }
     builder
-}
-
-/// Internal enum holding the actual pool for each database type
-pub enum PoolVariant {
-    MySQL(Arc<Pool<MySqlConnectionManager>>),
-    PostgresNoTls(Arc<Pool<PostgresConnectionManager<NoTls>>>),
-    PostgresTls(Arc<Pool<PostgresConnectionManager<MakeTlsConnector>>>),
-    SQLite(Arc<Pool<SqliteConnectionManager>>),
-    Oracle(Arc<Pool<OracleConnectionManager>>),
 }
 
 /// Python-exposed connection pool class
@@ -218,45 +207,10 @@ impl PyConnectionPool {
     }
 }
 
-// Internal accessor methods for Rust code
+// Internal accessor for Rust code — returns an owned clone of the pool variant.
 impl PyConnectionPool {
-    pub fn get_mysql_pool(&self) -> Option<Arc<Pool<MySqlConnectionManager>>> {
+    pub fn get_pool_variant(&self) -> Option<PoolVariant> {
         let pool = self.pool.lock();
-        match pool.as_ref()? {
-            PoolVariant::MySQL(p) => Some(Arc::clone(p)),
-            _ => None,
-        }
-    }
-
-    pub fn get_postgres_notls_pool(&self) -> Option<Arc<Pool<PostgresConnectionManager<NoTls>>>> {
-        let pool = self.pool.lock();
-        match pool.as_ref()? {
-            PoolVariant::PostgresNoTls(p) => Some(Arc::clone(p)),
-            _ => None,
-        }
-    }
-
-    pub fn get_postgres_tls_pool(&self) -> Option<Arc<Pool<PostgresConnectionManager<MakeTlsConnector>>>> {
-        let pool = self.pool.lock();
-        match pool.as_ref()? {
-            PoolVariant::PostgresTls(p) => Some(Arc::clone(p)),
-            _ => None,
-        }
-    }
-
-    pub fn get_sqlite_pool(&self) -> Option<Arc<Pool<SqliteConnectionManager>>> {
-        let pool = self.pool.lock();
-        match pool.as_ref()? {
-            PoolVariant::SQLite(p) => Some(Arc::clone(p)),
-            _ => None,
-        }
-    }
-
-    pub fn get_oracle_pool(&self) -> Option<Arc<Pool<OracleConnectionManager>>> {
-        let pool = self.pool.lock();
-        match pool.as_ref()? {
-            PoolVariant::Oracle(p) => Some(Arc::clone(p)),
-            _ => None,
-        }
+        pool.as_ref().cloned()
     }
 }

@@ -148,25 +148,14 @@ where
     <C::TlsConnect as TlsConnect<Socket>>::Future: Send,
 {
     #[throws(PostgresSourceError)]
-    pub fn new(config: Config, tls: C, nconn: usize) -> Self {
-        Self::new_with_pool(config, tls, nconn, None)?
-    }
-
-    #[throws(PostgresSourceError)]
-    pub fn new_with_pool(
-        config: Config,
-        tls: C,
-        nconn: usize,
-        existing_pool: Option<Arc<Pool<PgManager<C>>>>,
-    ) -> Self {
-        let pool = match existing_pool {
+    pub fn new(config: Config, tls: C, nconn: usize, pool: Option<Arc<Pool<PgManager<C>>>>) -> Self {
+        let pool = match pool {
             Some(p) => p,
             None => {
                 let manager = PostgresConnectionManager::new(config, tls);
                 Arc::new(Pool::builder().max_size(nconn as u32).build(manager)?)
             }
         };
-
         Self {
             pool,
             origin_query: None,

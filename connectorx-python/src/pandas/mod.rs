@@ -14,7 +14,7 @@ pub use self::transports::{
 };
 pub use self::typesystem::{PandasDType, PandasTypeSystem};
 use crate::errors::ConnectorXPythonError;
-use crate::pool::PyConnectionPool;
+use connectorx::pool::PoolVariant;
 use connectorx::source_router::{SourceConn, SourceType};
 use connectorx::sources::oracle::OracleSource;
 use connectorx::{
@@ -42,7 +42,7 @@ pub fn write_pandas<'a, 'py: 'a>(
     origin_query: Option<String>,
     queries: &[CXQuery<String>],
     pre_execution_queries: Option<&[String]>,
-    pool: Option<&PyConnectionPool>,
+    pool: Option<&PoolVariant>,
 ) -> Bound<'py, PyAny> {
     let destination = PandasDestination::new();
     let protocol = source_conn.proto.as_str();
@@ -53,12 +53,9 @@ pub fn write_pandas<'a, 'py: 'a>(
             let (config, tls) = rewrite_tls_args(&source_conn.conn)?;
             match (protocol, tls) {
                 ("csv", Some(tls_conn)) => {
-                    let pg_pool = pool.and_then(|p| p.get_postgres_tls_pool());
-                    let sb = PostgresSource::<CSVProtocol, MakeTlsConnector>::new_with_pool(
-                        config,
-                        tls_conn,
-                        queries.len(),
-                        pg_pool,
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
+                    let sb = PostgresSource::<CSVProtocol, MakeTlsConnector>::new(
+                        config, tls_conn, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = PandasDispatcher::<
                         _,
@@ -70,12 +67,9 @@ pub fn write_pandas<'a, 'py: 'a>(
                     dispatcher.run(py)?
                 }
                 ("csv", None) => {
-                    let pg_pool = pool.and_then(|p| p.get_postgres_notls_pool());
-                    let sb = PostgresSource::<CSVProtocol, NoTls>::new_with_pool(
-                        config,
-                        NoTls,
-                        queries.len(),
-                        pg_pool,
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let sb = PostgresSource::<CSVProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = PandasDispatcher::<
                         _,
@@ -87,12 +81,9 @@ pub fn write_pandas<'a, 'py: 'a>(
                     dispatcher.run(py)?
                 }
                 ("binary", Some(tls_conn)) => {
-                    let pg_pool = pool.and_then(|p| p.get_postgres_tls_pool());
-                    let sb = PostgresSource::<PgBinaryProtocol, MakeTlsConnector>::new_with_pool(
-                        config,
-                        tls_conn,
-                        queries.len(),
-                        pg_pool,
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
+                    let sb = PostgresSource::<PgBinaryProtocol, MakeTlsConnector>::new(
+                        config, tls_conn, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher =
                         PandasDispatcher::<
@@ -103,12 +94,9 @@ pub fn write_pandas<'a, 'py: 'a>(
                     dispatcher.run(py)?
                 }
                 ("binary", None) => {
-                    let pg_pool = pool.and_then(|p| p.get_postgres_notls_pool());
-                    let sb = PostgresSource::<PgBinaryProtocol, NoTls>::new_with_pool(
-                        config,
-                        NoTls,
-                        queries.len(),
-                        pg_pool,
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let sb = PostgresSource::<PgBinaryProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = PandasDispatcher::<
                         _,
@@ -120,12 +108,9 @@ pub fn write_pandas<'a, 'py: 'a>(
                     dispatcher.run(py)?
                 }
                 ("cursor", Some(tls_conn)) => {
-                    let pg_pool = pool.and_then(|p| p.get_postgres_tls_pool());
-                    let sb = PostgresSource::<CursorProtocol, MakeTlsConnector>::new_with_pool(
-                        config,
-                        tls_conn,
-                        queries.len(),
-                        pg_pool,
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
+                    let sb = PostgresSource::<CursorProtocol, MakeTlsConnector>::new(
+                        config, tls_conn, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher =
                         PandasDispatcher::<
@@ -136,12 +121,9 @@ pub fn write_pandas<'a, 'py: 'a>(
                     dispatcher.run(py)?
                 }
                 ("cursor", None) => {
-                    let pg_pool = pool.and_then(|p| p.get_postgres_notls_pool());
-                    let sb = PostgresSource::<CursorProtocol, NoTls>::new_with_pool(
-                        config,
-                        NoTls,
-                        queries.len(),
-                        pg_pool,
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let sb = PostgresSource::<CursorProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = PandasDispatcher::<
                         _,
@@ -153,12 +135,9 @@ pub fn write_pandas<'a, 'py: 'a>(
                     dispatcher.run(py)?
                 }
                 ("simple", Some(tls_conn)) => {
-                    let pg_pool = pool.and_then(|p| p.get_postgres_tls_pool());
-                    let sb = PostgresSource::<SimpleProtocol, MakeTlsConnector>::new_with_pool(
-                        config,
-                        tls_conn,
-                        queries.len(),
-                        pg_pool,
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
+                    let sb = PostgresSource::<SimpleProtocol, MakeTlsConnector>::new(
+                        config, tls_conn, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher =
                         PandasDispatcher::<
@@ -169,12 +148,9 @@ pub fn write_pandas<'a, 'py: 'a>(
                     dispatcher.run(py)?
                 }
                 ("simple", None) => {
-                    let pg_pool = pool.and_then(|p| p.get_postgres_notls_pool());
-                    let sb = PostgresSource::<SimpleProtocol, NoTls>::new_with_pool(
-                        config,
-                        NoTls,
-                        queries.len(),
-                        pg_pool,
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let sb = PostgresSource::<SimpleProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = PandasDispatcher::<
                         _,
@@ -191,8 +167,8 @@ pub fn write_pandas<'a, 'py: 'a>(
         SourceType::SQLite => {
             // remove the first "sqlite://" manually since url.path is not correct for windows
             let path = &source_conn.conn.as_str()[9..];
-            let sqlite_pool = pool.and_then(|p| p.get_sqlite_pool());
-            let source = SQLiteSource::new_with_pool(path, queries.len(), sqlite_pool)?;
+            let sqlite_pool = pool.map(|p| p.sqlite_pool());
+            let source = SQLiteSource::new(path, queries.len(), sqlite_pool)?;
             let dispatcher = PandasDispatcher::<_, SqlitePandasTransport>::new(
                 source,
                 destination,
@@ -201,42 +177,40 @@ pub fn write_pandas<'a, 'py: 'a>(
             );
             dispatcher.run(py)?
         }
-        SourceType::MySQL => match protocol {
-            "binary" => {
-                let mysql_pool = pool.and_then(|p| p.get_mysql_pool());
-                let source = MySQLSource::<MySQLBinaryProtocol>::new_with_pool(
-                    &source_conn.conn[..],
-                    queries.len(),
-                    mysql_pool,
-                )?;
-                let mut dispatcher =
-                    PandasDispatcher::<_, MysqlPandasTransport<MySQLBinaryProtocol>>::new(
-                        source,
-                        destination,
-                        queries,
-                        origin_query,
-                    );
-                dispatcher.set_pre_execution_queries(pre_execution_queries);
-                dispatcher.run(py)?
+        SourceType::MySQL => {
+            let mysql_pool = pool.map(|p| p.mysql_pool());
+            match protocol {
+                "binary" => {
+                    let source = MySQLSource::<MySQLBinaryProtocol>::new(
+                        &source_conn.conn[..], queries.len(), mysql_pool,
+                    )?;
+                    let mut dispatcher =
+                        PandasDispatcher::<_, MysqlPandasTransport<MySQLBinaryProtocol>>::new(
+                            source,
+                            destination,
+                            queries,
+                            origin_query,
+                        );
+                    dispatcher.set_pre_execution_queries(pre_execution_queries);
+                    dispatcher.run(py)?
+                }
+                "text" => {
+                    let source = MySQLSource::<TextProtocol>::new(
+                        &source_conn.conn[..], queries.len(), mysql_pool,
+                    )?;
+                    let mut dispatcher =
+                        PandasDispatcher::<_, MysqlPandasTransport<TextProtocol>>::new(
+                            source,
+                            destination,
+                            queries,
+                            origin_query,
+                        );
+                    dispatcher.set_pre_execution_queries(pre_execution_queries);
+                    dispatcher.run(py)?
+                }
+                _ => unimplemented!("{} protocol not supported", protocol),
             }
-            "text" => {
-                let mysql_pool = pool.and_then(|p| p.get_mysql_pool());
-                let source = MySQLSource::<TextProtocol>::new_with_pool(
-                    &source_conn.conn[..],
-                    queries.len(),
-                    mysql_pool,
-                )?;
-                let mut dispatcher = PandasDispatcher::<_, MysqlPandasTransport<TextProtocol>>::new(
-                    source,
-                    destination,
-                    queries,
-                    origin_query,
-                );
-                dispatcher.set_pre_execution_queries(pre_execution_queries);
-                dispatcher.run(py)?
-            }
-            _ => unimplemented!("{} protocol not supported", protocol),
-        },
+        }
         SourceType::MsSQL => {
             let rt = Arc::new(tokio::runtime::Runtime::new().expect("Failed to create runtime"));
             let source = MsSQLSource::new(rt, &source_conn.conn[..], queries.len())?;
@@ -249,8 +223,8 @@ pub fn write_pandas<'a, 'py: 'a>(
             dispatcher.run(py)?
         }
         SourceType::Oracle => {
-            let oracle_pool = pool.and_then(|p| p.get_oracle_pool());
-            let source = OracleSource::new_with_pool(&source_conn.conn[..], queries.len(), oracle_pool)?;
+            let oracle_pool = pool.map(|p| p.oracle_pool());
+            let source = OracleSource::new(&source_conn.conn[..], queries.len(), oracle_pool)?;
             let dispatcher = PandasDispatcher::<_, OraclePandasTransport>::new(
                 source,
                 destination,
