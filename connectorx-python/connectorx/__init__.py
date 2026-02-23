@@ -342,7 +342,7 @@ def read_sql(
                 f"Either reduce partition_num or increase pool max_size."
             )
         pool_obj = conn
-        conn = ""  # actual conn string is extracted from the pool on the Rust side
+        conn = None
 
     if isinstance(query, list) and len(query) == 1:
         query = query[0]
@@ -408,7 +408,10 @@ def read_sql(
     else:
         pre_execution_queries = None
 
-    conn, protocol = rewrite_conn(conn, protocol)
+    if conn is not None:
+        conn, protocol = rewrite_conn(conn, protocol)
+    elif pool_obj is not None and protocol is None:
+        protocol = pool_obj.default_protocol
 
     if return_type in {"modin", "dask", "pandas"}:
         try_import_module("pandas")

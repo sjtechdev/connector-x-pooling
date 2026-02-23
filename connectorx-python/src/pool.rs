@@ -62,6 +62,8 @@ pub struct PyConnectionPool {
     pool: Mutex<Option<PoolVariant>>,
     pub conn_str: String,
     max_size: u32,
+    #[pyo3(get)]
+    pub default_protocol: String,
 }
 
 #[pymethods]
@@ -85,7 +87,21 @@ impl PyConnectionPool {
             test_on_check_out,
         };
 
-        let source_conn = parse_source(conn, None)
+        let mut rewritten_conn = conn.to_string();
+        let mut default_protocol = "binary".to_string();
+
+        let backend_split: Vec<&str> = conn.splitn(2, ':').collect();
+        if backend_split.len() == 2 {
+            if backend_split[0].contains("redshift") {
+                rewritten_conn = format!("postgresql:{}", backend_split[1]);
+                default_protocol = "cursor".to_string();
+            } else if backend_split[0].contains("clickhouse") {
+                rewritten_conn = format!("mysql:{}", backend_split[1]);
+                default_protocol = "text".to_string();
+            }
+        }
+
+        let source_conn = parse_source(&rewritten_conn, None)
             .map_err(|e| ConnectorXPythonError::from(e))?;
 
         let pool_variant = match source_conn.ty {
@@ -159,8 +175,9 @@ impl PyConnectionPool {
 
         Ok(Self {
             pool: Mutex::new(Some(pool_variant)),
-            conn_str: conn.to_string(),
+            conn_str: rewritten_conn,
             max_size,
+            default_protocol,
         })
     }
 

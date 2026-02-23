@@ -36,7 +36,7 @@ impl Into<PartitionQuery> for PyPartitionQuery {
 
 pub fn read_sql<'py>(
     py: Python<'py>,
-    conn: &str,
+    conn: Option<&str>,
     return_type: &str,
     protocol: Option<&str>,
     queries: Option<Vec<String>>,
@@ -45,8 +45,14 @@ pub fn read_sql<'py>(
     pool: Option<&PyConnectionPool>,
     kwargs: Option<&Bound<PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let conn = pool.map(|p| p.conn_str.as_str()).unwrap_or(conn);
-    let source_conn = parse_source(conn, protocol).map_err(|e| ConnectorXPythonError::from(e))?;
+    let conn_str: &str = match (conn, pool) {
+        (_, Some(p)) => p.conn_str.as_str(),
+        (Some(c), None) => c,
+        (None, None) => throw!(PyValueError::new_err(
+            "either conn or pool must be provided",
+        )),
+    };
+    let source_conn = parse_source(conn_str, protocol).map_err(|e| ConnectorXPythonError::from(e))?;
     let (queries, origin_query) = match (queries, partition_query) {
         (Some(queries), None) => (queries.into_iter().map(CXQuery::Naked).collect(), None),
         (None, Some(part)) => {
