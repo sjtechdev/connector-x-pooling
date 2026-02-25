@@ -1,5 +1,6 @@
 use connectorx::{
     partition::{partition, PartitionQuery},
+    pool::{PoolConfig, PoolVariant},
     source_router::parse_source,
     sql::CXQuery,
 };
@@ -8,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::{exceptions::PyValueError, PyResult};
 
 use crate::errors::ConnectorXPythonError;
+use crate::pool::PyConnectionPool;
 use pyo3::types::PyDict;
 
 #[derive(FromPyObject)]
@@ -34,15 +36,23 @@ impl Into<PartitionQuery> for PyPartitionQuery {
 
 pub fn read_sql<'py>(
     py: Python<'py>,
-    conn: &str,
+    conn: Option<&str>,
     return_type: &str,
     protocol: Option<&str>,
     queries: Option<Vec<String>>,
     partition_query: Option<PyPartitionQuery>,
     pre_execution_queries: Option<Vec<String>>,
+    pool: Option<&PyConnectionPool>,
     kwargs: Option<&Bound<PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let source_conn = parse_source(conn, protocol).map_err(|e| ConnectorXPythonError::from(e))?;
+    let conn_str: &str = match (conn, pool) {
+        (_, Some(p)) => p.conn_str.as_str(),
+        (Some(c), None) => c,
+        (None, None) => throw!(PyValueError::new_err(
+            "either conn or pool must be provided",
+        )),
+    };
+    let source_conn = parse_source(conn_str, protocol).map_err(|e| ConnectorXPythonError::from(e))?;
     let (queries, origin_query) = match (queries, partition_query) {
         (Some(queries), None) => (queries.into_iter().map(CXQuery::Naked).collect(), None),
         (None, Some(part)) => {
@@ -59,6 +69,18 @@ pub fn read_sql<'py>(
         )),
     };
 
+    // Resolve to a single PoolVariant early: either extract from the provided PyConnectionPool,
+    // or create one from the connection string (returns None for MSSQL/BigQuery/Trino).
+    let inner_pool: Option<PoolVariant> = match pool {
+        Some(p) => p.get_pool_variant(),
+        None => PoolVariant::from_source_conn(
+            &source_conn,
+            &PoolConfig { max_size: queries.len() as u32, ..Default::default() },
+        )
+            .map_err(ConnectorXPythonError::Other)?,
+    };
+    let pool_ref = inner_pool.as_ref();
+
     match return_type {
         "pandas" => Ok(crate::pandas::write_pandas(
             py,
@@ -66,6 +88,7 @@ pub fn read_sql<'py>(
             origin_query,
             &queries,
             pre_execution_queries.as_deref(),
+            pool_ref,
         )?),
         "arrow" => Ok(crate::arrow::write_arrow(
             py,
@@ -73,6 +96,7 @@ pub fn read_sql<'py>(
             origin_query,
             &queries,
             pre_execution_queries.as_deref(),
+            pool_ref,
         )?),
         "arrow_stream" => {
             let batch_size = kwargs
@@ -87,6 +111,7 @@ pub fn read_sql<'py>(
                 &queries,
                 pre_execution_queries.as_deref(),
                 batch_size,
+                pool_ref,
             )?)
         }
 

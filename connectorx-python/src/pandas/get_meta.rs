@@ -48,8 +48,9 @@ pub fn get_meta<'py>(
             let (config, tls) = rewrite_tls_args(&source_conn.conn)?;
             match (protocol, tls) {
                 ("csv", Some(tls_conn)) => {
-                    let sb =
-                        PostgresSource::<CSVProtocol, MakeTlsConnector>::new(config, tls_conn, 1)?;
+                    let sb = PostgresSource::<CSVProtocol, MakeTlsConnector>::new(
+                        config, tls_conn, 1, None,
+                    )?;
                     let dispatcher = PandasDispatcher::<
                         _,
                         PostgresPandasTransport<CSVProtocol, MakeTlsConnector>,
@@ -58,7 +59,8 @@ pub fn get_meta<'py>(
                     dispatcher.get_meta(py)?
                 }
                 ("csv", None) => {
-                    let sb = PostgresSource::<CSVProtocol, NoTls>::new(config, NoTls, 1)?;
+                    let sb =
+                        PostgresSource::<CSVProtocol, NoTls>::new(config, NoTls, 1, None)?;
                     let dispatcher = PandasDispatcher::<
                         _,
                         PostgresPandasTransport<CSVProtocol, NoTls>,
@@ -68,7 +70,7 @@ pub fn get_meta<'py>(
                 }
                 ("binary", Some(tls_conn)) => {
                     let sb = PostgresSource::<PgBinaryProtocol, MakeTlsConnector>::new(
-                        config, tls_conn, 1,
+                        config, tls_conn, 1, None,
                     )?;
                     let dispatcher = PandasDispatcher::<
                         _,
@@ -78,7 +80,9 @@ pub fn get_meta<'py>(
                     dispatcher.get_meta(py)?
                 }
                 ("binary", None) => {
-                    let sb = PostgresSource::<PgBinaryProtocol, NoTls>::new(config, NoTls, 1)?;
+                    let sb = PostgresSource::<PgBinaryProtocol, NoTls>::new(
+                        config, NoTls, 1, None,
+                    )?;
                     let dispatcher = PandasDispatcher::<
                         _,
                         PostgresPandasTransport<PgBinaryProtocol, NoTls>,
@@ -88,7 +92,7 @@ pub fn get_meta<'py>(
                 }
                 ("cursor", Some(tls_conn)) => {
                     let sb = PostgresSource::<CursorProtocol, MakeTlsConnector>::new(
-                        config, tls_conn, 1,
+                        config, tls_conn, 1, None,
                     )?;
                     let dispatcher = PandasDispatcher::<
                         _,
@@ -98,7 +102,9 @@ pub fn get_meta<'py>(
                     dispatcher.get_meta(py)?
                 }
                 ("cursor", None) => {
-                    let sb = PostgresSource::<CursorProtocol, NoTls>::new(config, NoTls, 1)?;
+                    let sb = PostgresSource::<CursorProtocol, NoTls>::new(
+                        config, NoTls, 1, None,
+                    )?;
                     let dispatcher = PandasDispatcher::<
                         _,
                         PostgresPandasTransport<CursorProtocol, NoTls>,
@@ -108,7 +114,7 @@ pub fn get_meta<'py>(
                 }
                 ("simple", Some(tls_conn)) => {
                     let sb = PostgresSource::<SimpleProtocol, MakeTlsConnector>::new(
-                        config, tls_conn, 1,
+                        config, tls_conn, 1, None,
                     )?;
                     let dispatcher = PandasDispatcher::<
                         _,
@@ -118,7 +124,9 @@ pub fn get_meta<'py>(
                     dispatcher.get_meta(py)?
                 }
                 ("simple", None) => {
-                    let sb = PostgresSource::<SimpleProtocol, NoTls>::new(config, NoTls, 1)?;
+                    let sb = PostgresSource::<SimpleProtocol, NoTls>::new(
+                        config, NoTls, 1, None,
+                    )?;
                     let dispatcher = PandasDispatcher::<
                         _,
                         PostgresPandasTransport<SimpleProtocol, NoTls>,
@@ -132,7 +140,7 @@ pub fn get_meta<'py>(
         SourceType::SQLite => {
             // remove the first "sqlite://" manually since url.path is not correct for windows
             let path = &source_conn.conn.as_str()[9..];
-            let source = SQLiteSource::new(path, 1)?;
+            let source = SQLiteSource::new(path, 1, None)?;
             let dispatcher = PandasDispatcher::<_, SqlitePandasTransport>::new(
                 source,
                 destination,
@@ -146,7 +154,8 @@ pub fn get_meta<'py>(
             debug!("Protocol: {}", protocol);
             match protocol {
                 "binary" => {
-                    let source = MySQLSource::<MySQLBinaryProtocol>::new(&source_conn.conn[..], 1)?;
+                    let source =
+                        MySQLSource::<MySQLBinaryProtocol>::new(&source_conn.conn[..], 1, None)?;
                     let dispatcher =
                         PandasDispatcher::<_, MysqlPandasTransport<MySQLBinaryProtocol>>::new(
                             source,
@@ -158,7 +167,8 @@ pub fn get_meta<'py>(
                     dispatcher.get_meta(py)?
                 }
                 "text" => {
-                    let source = MySQLSource::<TextProtocol>::new(&source_conn.conn[..], 1)?;
+                    let source =
+                        MySQLSource::<TextProtocol>::new(&source_conn.conn[..], 1, None)?;
                     let dispatcher = PandasDispatcher::<_, MysqlPandasTransport<TextProtocol>>::new(
                         source,
                         destination,
@@ -184,7 +194,7 @@ pub fn get_meta<'py>(
             dispatcher.get_meta(py)?
         }
         SourceType::Oracle => {
-            let source = OracleSource::new(&source_conn.conn[..], 1)?;
+            let source = OracleSource::new(&source_conn.conn[..], 1, None)?;
             let dispatcher = PandasDispatcher::<_, OraclePandasTransport>::new(
                 source,
                 destination,

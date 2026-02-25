@@ -7,6 +7,7 @@ use crate::sources::postgres::{
 };
 use crate::{
     arrow_batch_iter::{ArrowBatchIter, RecordBatchIterator},
+    pool::PoolVariant,
     prelude::*,
     sql::CXQuery,
 };
@@ -26,6 +27,7 @@ pub fn get_arrow(
     origin_query: Option<String>,
     queries: &[CXQuery<String>],
     pre_execution_queries: Option<&[String]>,
+    pool: Option<&PoolVariant>,
 ) -> ArrowDestination {
     let mut destination = ArrowDestination::new();
     let protocol = source_conn.proto.as_str();
@@ -37,10 +39,9 @@ pub fn get_arrow(
             let (config, tls) = rewrite_tls_args(&source_conn.conn)?;
             match (protocol, tls) {
                 ("csv", Some(tls_conn)) => {
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
                     let source = PostgresSource::<CSVProtocol, MakeTlsConnector>::new(
-                        config,
-                        tls_conn,
-                        queries.len(),
+                        config, tls_conn, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = Dispatcher::<
                         _,
@@ -53,8 +54,10 @@ pub fn get_arrow(
                     dispatcher.run()?;
                 }
                 ("csv", None) => {
-                    let source =
-                        PostgresSource::<CSVProtocol, NoTls>::new(config, NoTls, queries.len())?;
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let source = PostgresSource::<CSVProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
+                    )?;
                     let mut dispatcher = Dispatcher::<
                         _,
                         _,
@@ -66,10 +69,9 @@ pub fn get_arrow(
                     dispatcher.run()?;
                 }
                 ("binary", Some(tls_conn)) => {
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
                     let source = PostgresSource::<PgBinaryProtocol, MakeTlsConnector>::new(
-                        config,
-                        tls_conn,
-                        queries.len(),
+                        config, tls_conn, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = Dispatcher::<
                         _,
@@ -82,10 +84,9 @@ pub fn get_arrow(
                     dispatcher.run()?;
                 }
                 ("binary", None) => {
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
                     let source = PostgresSource::<PgBinaryProtocol, NoTls>::new(
-                        config,
-                        NoTls,
-                        queries.len(),
+                        config, NoTls, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = Dispatcher::<
                         _,
@@ -98,10 +99,9 @@ pub fn get_arrow(
                     dispatcher.run()?;
                 }
                 ("cursor", Some(tls_conn)) => {
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
                     let source = PostgresSource::<CursorProtocol, MakeTlsConnector>::new(
-                        config,
-                        tls_conn,
-                        queries.len(),
+                        config, tls_conn, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = Dispatcher::<
                         _,
@@ -114,8 +114,10 @@ pub fn get_arrow(
                     dispatcher.run()?;
                 }
                 ("cursor", None) => {
-                    let source =
-                        PostgresSource::<CursorProtocol, NoTls>::new(config, NoTls, queries.len())?;
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let source = PostgresSource::<CursorProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
+                    )?;
                     let mut dispatcher = Dispatcher::<
                         _,
                         _,
@@ -127,31 +129,32 @@ pub fn get_arrow(
                     dispatcher.run()?;
                 }
                 ("simple", Some(tls_conn)) => {
-                    let sb = PostgresSource::<SimpleProtocol, MakeTlsConnector>::new(
-                        config,
-                        tls_conn,
-                        queries.len(),
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
+                    let source = PostgresSource::<SimpleProtocol, MakeTlsConnector>::new(
+                        config, tls_conn, queries.len(), pg_pool,
                     )?;
                     let mut dispatcher = Dispatcher::<
                         _,
                         _,
                         PostgresArrowTransport<SimpleProtocol, MakeTlsConnector>,
                     >::new(
-                        sb, &mut destination, queries, origin_query
+                        source, &mut destination, queries, origin_query
                     );
                     debug!("Running dispatcher");
                     dispatcher.set_pre_execution_queries(pre_execution_queries);
                     dispatcher.run()?;
                 }
                 ("simple", None) => {
-                    let sb =
-                        PostgresSource::<SimpleProtocol, NoTls>::new(config, NoTls, queries.len())?;
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let source = PostgresSource::<SimpleProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
+                    )?;
                     let mut dispatcher = Dispatcher::<
                         _,
                         _,
                         PostgresArrowTransport<SimpleProtocol, NoTls>,
                     >::new(
-                        sb, &mut destination, queries, origin_query
+                        source, &mut destination, queries, origin_query
                     );
                     debug!("Running dispatcher");
                     dispatcher.set_pre_execution_queries(pre_execution_queries);
@@ -161,39 +164,46 @@ pub fn get_arrow(
             }
         }
         #[cfg(feature = "src_mysql")]
-        SourceType::MySQL => match protocol {
-            "binary" => {
-                let source =
-                    MySQLSource::<MySQLBinaryProtocol>::new(&source_conn.conn[..], queries.len())?;
-                let mut dispatcher =
-                    Dispatcher::<_, _, MySQLArrowTransport<MySQLBinaryProtocol>>::new(
-                        source,
-                        &mut destination,
-                        queries,
-                        origin_query,
-                    );
-                dispatcher.set_pre_execution_queries(pre_execution_queries);
-                dispatcher.run()?;
+        SourceType::MySQL => {
+            let mysql_pool = pool.map(|p| p.mysql_pool());
+            match protocol {
+                "binary" => {
+                    let source = MySQLSource::<MySQLBinaryProtocol>::new(
+                        &source_conn.conn[..], queries.len(), mysql_pool,
+                    )?;
+                    let mut dispatcher =
+                        Dispatcher::<_, _, MySQLArrowTransport<MySQLBinaryProtocol>>::new(
+                            source,
+                            &mut destination,
+                            queries,
+                            origin_query,
+                        );
+                    dispatcher.set_pre_execution_queries(pre_execution_queries);
+                    dispatcher.run()?;
+                }
+                "text" => {
+                    let source = MySQLSource::<TextProtocol>::new(
+                        &source_conn.conn[..], queries.len(), mysql_pool,
+                    )?;
+                    let mut dispatcher =
+                        Dispatcher::<_, _, MySQLArrowTransport<TextProtocol>>::new(
+                            source,
+                            &mut destination,
+                            queries,
+                            origin_query,
+                        );
+                    dispatcher.set_pre_execution_queries(pre_execution_queries);
+                    dispatcher.run()?;
+                }
+                _ => unimplemented!("{} protocol not supported", protocol),
             }
-            "text" => {
-                let source =
-                    MySQLSource::<TextProtocol>::new(&source_conn.conn[..], queries.len())?;
-                let mut dispatcher = Dispatcher::<_, _, MySQLArrowTransport<TextProtocol>>::new(
-                    source,
-                    &mut destination,
-                    queries,
-                    origin_query,
-                );
-                dispatcher.set_pre_execution_queries(pre_execution_queries);
-                dispatcher.run()?;
-            }
-            _ => unimplemented!("{} protocol not supported", protocol),
-        },
+        }
         #[cfg(feature = "src_sqlite")]
         SourceType::SQLite => {
             // remove the first "sqlite://" manually since url.path is not correct for windows
             let path = &source_conn.conn.as_str()[9..];
-            let source = SQLiteSource::new(path, queries.len())?;
+            let sqlite_pool = pool.map(|p| p.sqlite_pool());
+            let source = SQLiteSource::new(path, queries.len(), sqlite_pool)?;
             let dispatcher = Dispatcher::<_, _, SQLiteArrowTransport>::new(
                 source,
                 &mut destination,
@@ -216,7 +226,8 @@ pub fn get_arrow(
         }
         #[cfg(feature = "src_oracle")]
         SourceType::Oracle => {
-            let source = OracleSource::new(&source_conn.conn[..], queries.len())?;
+            let oracle_pool = pool.map(|p| p.oracle_pool());
+            let source = OracleSource::new(&source_conn.conn[..], queries.len(), oracle_pool)?;
             let dispatcher = Dispatcher::<_, _, OracleArrowTransport>::new(
                 source,
                 &mut destination,
@@ -265,6 +276,7 @@ pub fn new_record_batch_iter(
     queries: &[CXQuery<String>],
     batch_size: usize,
     pre_execution_queries: Option<&[String]>,
+    pool: Option<&PoolVariant>,
 ) -> Box<dyn RecordBatchIterator> {
     let destination = ArrowStreamDestination::new_with_batch_size(batch_size);
     let protocol = source_conn.proto.as_str();
@@ -276,15 +288,11 @@ pub fn new_record_batch_iter(
             let (config, tls) = rewrite_tls_args(&source_conn.conn).unwrap();
             match (protocol, tls) {
                 ("csv", Some(tls_conn)) => {
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
                     let mut source = PostgresSource::<CSVProtocol, MakeTlsConnector>::new(
-                        config,
-                        tls_conn,
-                        queries.len(),
-                    )
-                    .unwrap();
-
+                        config, tls_conn, queries.len(), pg_pool,
+                    ).unwrap();
                     source.set_pre_execution_queries(pre_execution_queries);
-
                     let batch_iter =
                         ArrowBatchIter::<
                             _,
@@ -294,12 +302,11 @@ pub fn new_record_batch_iter(
                     return Box::new(batch_iter);
                 }
                 ("csv", None) => {
-                    let mut source =
-                        PostgresSource::<CSVProtocol, NoTls>::new(config, NoTls, queries.len())
-                            .unwrap();
-
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let mut source = PostgresSource::<CSVProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
+                    ).unwrap();
                     source.set_pre_execution_queries(pre_execution_queries);
-
                     let batch_iter = ArrowBatchIter::<
                         _,
                         PostgresArrowStreamTransport<CSVProtocol, NoTls>,
@@ -310,15 +317,11 @@ pub fn new_record_batch_iter(
                     return Box::new(batch_iter);
                 }
                 ("binary", Some(tls_conn)) => {
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
                     let mut source = PostgresSource::<PgBinaryProtocol, MakeTlsConnector>::new(
-                        config,
-                        tls_conn,
-                        queries.len(),
-                    )
-                    .unwrap();
-
+                        config, tls_conn, queries.len(), pg_pool,
+                    ).unwrap();
                     source.set_pre_execution_queries(pre_execution_queries);
-
                     let batch_iter =
                         ArrowBatchIter::<
                             _,
@@ -328,15 +331,11 @@ pub fn new_record_batch_iter(
                     return Box::new(batch_iter);
                 }
                 ("binary", None) => {
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
                     let mut source = PostgresSource::<PgBinaryProtocol, NoTls>::new(
-                        config,
-                        NoTls,
-                        queries.len(),
-                    )
-                    .unwrap();
-
+                        config, NoTls, queries.len(), pg_pool,
+                    ).unwrap();
                     source.set_pre_execution_queries(pre_execution_queries);
-
                     let batch_iter = ArrowBatchIter::<
                         _,
                         PostgresArrowStreamTransport<PgBinaryProtocol, NoTls>,
@@ -347,15 +346,11 @@ pub fn new_record_batch_iter(
                     return Box::new(batch_iter);
                 }
                 ("cursor", Some(tls_conn)) => {
+                    let pg_pool = pool.map(|p| p.postgres_tls_pool());
                     let mut source = PostgresSource::<CursorProtocol, MakeTlsConnector>::new(
-                        config,
-                        tls_conn,
-                        queries.len(),
-                    )
-                    .unwrap();
-
+                        config, tls_conn, queries.len(), pg_pool,
+                    ).unwrap();
                     source.set_pre_execution_queries(pre_execution_queries);
-
                     let batch_iter =
                         ArrowBatchIter::<
                             _,
@@ -365,12 +360,11 @@ pub fn new_record_batch_iter(
                     return Box::new(batch_iter);
                 }
                 ("cursor", None) => {
-                    let mut source =
-                        PostgresSource::<CursorProtocol, NoTls>::new(config, NoTls, queries.len())
-                            .unwrap();
-
+                    let pg_pool = pool.map(|p| p.postgres_notls_pool());
+                    let mut source = PostgresSource::<CursorProtocol, NoTls>::new(
+                        config, NoTls, queries.len(), pg_pool,
+                    ).unwrap();
                     source.set_pre_execution_queries(pre_execution_queries);
-
                     let batch_iter = ArrowBatchIter::<
                         _,
                         PostgresArrowStreamTransport<CursorProtocol, NoTls>,
@@ -384,46 +378,48 @@ pub fn new_record_batch_iter(
             }
         }
         #[cfg(feature = "src_mysql")]
-        SourceType::MySQL => match protocol {
-            "binary" => {
-                let mut source =
-                    MySQLSource::<MySQLBinaryProtocol>::new(&source_conn.conn[..], queries.len())
+        SourceType::MySQL => {
+            let mysql_pool = pool.map(|p| p.mysql_pool());
+            match protocol {
+                "binary" => {
+                    let mut source = MySQLSource::<MySQLBinaryProtocol>::new(
+                        &source_conn.conn[..], queries.len(), mysql_pool,
+                    ).unwrap();
+                    source.set_pre_execution_queries(pre_execution_queries);
+                    let batch_iter =
+                        ArrowBatchIter::<_, MySQLArrowStreamTransport<MySQLBinaryProtocol>>::new(
+                            source,
+                            destination,
+                            origin_query,
+                            queries,
+                        )
                         .unwrap();
-
-                source.set_pre_execution_queries(pre_execution_queries);
-
-                let batch_iter =
-                    ArrowBatchIter::<_, MySQLArrowStreamTransport<MySQLBinaryProtocol>>::new(
-                        source,
-                        destination,
-                        origin_query,
-                        queries,
-                    )
-                    .unwrap();
-                return Box::new(batch_iter);
+                    return Box::new(batch_iter);
+                }
+                "text" => {
+                    let mut source = MySQLSource::<TextProtocol>::new(
+                        &source_conn.conn[..], queries.len(), mysql_pool,
+                    ).unwrap();
+                    source.set_pre_execution_queries(pre_execution_queries);
+                    let batch_iter =
+                        ArrowBatchIter::<_, MySQLArrowStreamTransport<TextProtocol>>::new(
+                            source,
+                            destination,
+                            origin_query,
+                            queries,
+                        )
+                        .unwrap();
+                    return Box::new(batch_iter);
+                }
+                _ => unimplemented!("{} protocol not supported", protocol),
             }
-            "text" => {
-                let mut source =
-                    MySQLSource::<TextProtocol>::new(&source_conn.conn[..], queries.len()).unwrap();
-
-                source.set_pre_execution_queries(pre_execution_queries);
-
-                let batch_iter = ArrowBatchIter::<_, MySQLArrowStreamTransport<TextProtocol>>::new(
-                    source,
-                    destination,
-                    origin_query,
-                    queries,
-                )
-                .unwrap();
-                return Box::new(batch_iter);
-            }
-            _ => unimplemented!("{} protocol not supported", protocol),
-        },
+        }
         #[cfg(feature = "src_sqlite")]
         SourceType::SQLite => {
             // remove the first "sqlite://" manually since url.path is not correct for windows
             let path = &source_conn.conn.as_str()[9..];
-            let source = SQLiteSource::new(path, queries.len()).unwrap();
+            let sqlite_pool = pool.map(|p| p.sqlite_pool());
+            let source = SQLiteSource::new(path, queries.len(), sqlite_pool).unwrap();
             let batch_iter = ArrowBatchIter::<_, SQLiteArrowStreamTransport>::new(
                 source,
                 destination,
@@ -448,7 +444,9 @@ pub fn new_record_batch_iter(
         }
         #[cfg(feature = "src_oracle")]
         SourceType::Oracle => {
-            let source = OracleSource::new(&source_conn.conn[..], queries.len()).unwrap();
+            let oracle_pool = pool.map(|p| p.oracle_pool());
+            let source =
+                OracleSource::new(&source_conn.conn[..], queries.len(), oracle_pool).unwrap();
             let batch_iter = ArrowBatchIter::<_, OracleArrowStreamTransport>::new(
                 source,
                 destination,

@@ -1,6 +1,7 @@
 use crate::errors::ConnectorXPythonError;
 use anyhow::anyhow;
 use arrow::record_batch::RecordBatch;
+use connectorx::pool::PoolVariant;
 use connectorx::source_router::SourceConn;
 use connectorx::{prelude::*, sql::CXQuery};
 use fehler::throws;
@@ -85,10 +86,11 @@ pub fn write_arrow<'py>(
     origin_query: Option<String>,
     queries: &[CXQuery<String>],
     pre_execution_queries: Option<&[String]>,
+    pool: Option<&PoolVariant>,
 ) -> Bound<'py, PyAny> {
     let ptrs = py.detach(
         || -> Result<(Vec<String>, Vec<Vec<(uintptr_t, uintptr_t)>>), ConnectorXPythonError> {
-            let destination = get_arrow(source_conn, origin_query, queries, pre_execution_queries)?;
+            let destination = get_arrow(source_conn, origin_query, queries, pre_execution_queries, pool)?;
             let rbs = destination.arrow()?;
             Ok(to_ptrs(rbs))
         },
@@ -105,6 +107,7 @@ pub fn get_arrow_rb_iter<'py>(
     queries: &[CXQuery<String>],
     pre_execution_queries: Option<&[String]>,
     batch_size: usize,
+    pool: Option<&PoolVariant>,
 ) -> Bound<'py, PyAny> {
     let mut arrow_iter: Box<dyn RecordBatchIterator> = new_record_batch_iter(
         source_conn,
@@ -112,6 +115,7 @@ pub fn get_arrow_rb_iter<'py>(
         queries,
         batch_size,
         pre_execution_queries,
+        pool,
     );
 
     arrow_iter.prepare();

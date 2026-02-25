@@ -451,7 +451,7 @@ fn mssql_get_partition_range(conn: &Url, query: &str, col: &str) -> (i64, i64) {
 #[cfg(feature = "src_oracle")]
 #[throws(ConnectorXOutError)]
 fn oracle_get_partition_range(conn: &Url, query: &str, col: &str) -> (i64, i64) {
-    let source = OracleSource::new(conn.as_str(), 1)?;
+    let source = OracleSource::new(conn.as_str(), 1, None)?;
     let conn = source.get_conn()?;
     let range_query = get_partition_range_query(query, col, &OracleDialect {})?;
     let row = conn.query_row(range_query.as_str(), &[])?;

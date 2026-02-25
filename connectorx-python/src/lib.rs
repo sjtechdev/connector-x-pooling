@@ -3,8 +3,10 @@ pub mod constants;
 pub mod cx_read_sql;
 mod errors;
 pub mod pandas;
+pub mod pool;
 
 use crate::constants::J4RS_BASE_PATH;
+use crate::pool::PyConnectionPool;
 use ::connectorx::{fed_dispatcher::run, partition::partition, source_router::parse_source};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::types::PyDict;
@@ -38,19 +40,21 @@ fn connectorx(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<pandas::PandasBlockInfo>()?;
     m.add_class::<arrow::PyRecordBatch>()?;
     m.add_class::<arrow::PyRecordBatchIterator>()?;
+    m.add_class::<PyConnectionPool>()?;
     Ok(())
 }
 
 #[pyfunction]
-#[pyo3(signature = (conn, return_type, protocol=None, queries=None, partition_query=None, pre_execution_queries=None, *, **kwargs))]
+#[pyo3(signature = (conn=None, return_type="pandas", protocol=None, queries=None, partition_query=None, pre_execution_queries=None, pool=None, *, **kwargs))]
 pub fn read_sql<'py>(
     py: Python<'py>,
-    conn: &str,
+    conn: Option<&str>,
     return_type: &str,
     protocol: Option<&str>,
     queries: Option<Vec<String>>,
     partition_query: Option<cx_read_sql::PyPartitionQuery>,
     pre_execution_queries: Option<Vec<String>>,
+    pool: Option<&PyConnectionPool>,
     kwargs: Option<&Bound<PyDict>>,
 ) -> PyResult<Bound<'py, PyAny>> {
     cx_read_sql::read_sql(
@@ -61,6 +65,7 @@ pub fn read_sql<'py>(
         queries,
         partition_query,
         pre_execution_queries,
+        pool,
         kwargs,
     )
 }

@@ -25,6 +25,7 @@ use r2d2_oracle::{
 };
 use rust_decimal::Decimal;
 use sqlparser::dialect::Dialect;
+use std::sync::Arc;
 use url::Url;
 use urlencoding::decode;
 
@@ -46,7 +47,7 @@ impl Dialect for OracleDialect {
 }
 
 pub struct OracleSource {
-    pool: Pool<OracleManager>,
+    pool: Arc<Pool<OracleManager>>,
     origin_query: Option<String>,
     queries: Vec<CXQuery<String>>,
     names: Vec<String>,
@@ -80,17 +81,18 @@ pub fn connect_oracle(conn: &Url) -> Connector {
 
 impl OracleSource {
     #[throws(OracleSourceError)]
-    pub fn new(conn: &str, nconn: usize) -> Self {
-        let conn = Url::parse(conn)?;
-        let connector = connect_oracle(&conn)?;
-        let manager = OracleConnectionManager::from_connector(connector);
-        let pool = r2d2::Pool::builder()
-            .max_size(nconn as u32)
-            .build(manager)?;
-
-        let params: HashMap<String, String> = conn.query_pairs().into_owned().collect();
+    pub fn new(conn: &str, nconn: usize, pool: Option<Arc<Pool<OracleManager>>>) -> Self {
+        let conn_url = Url::parse(conn)?;
+        let params: HashMap<String, String> = conn_url.query_pairs().into_owned().collect();
         let current_schema = params.get("schema").cloned();
-
+        let pool = match pool {
+            Some(p) => p,
+            None => {
+                let connector = connect_oracle(&conn_url)?;
+                let manager = OracleConnectionManager::from_connector(connector);
+                Arc::new(r2d2::Pool::builder().max_size(nconn as u32).build(manager)?)
+            }
+        };
         Self {
             pool,
             origin_query: None,

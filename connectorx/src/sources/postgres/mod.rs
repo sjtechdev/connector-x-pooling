@@ -36,6 +36,7 @@ use sqlparser::dialect::PostgreSqlDialect;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Protocol - Binary based bulk load
@@ -129,7 +130,7 @@ where
     C::Stream: Send,
     <C::TlsConnect as TlsConnect<Socket>>::Future: Send,
 {
-    pool: Pool<PgManager<C>>,
+    pool: Arc<Pool<PgManager<C>>>,
     origin_query: Option<String>,
     queries: Vec<CXQuery<String>>,
     names: Vec<String>,
@@ -147,10 +148,14 @@ where
     <C::TlsConnect as TlsConnect<Socket>>::Future: Send,
 {
     #[throws(PostgresSourceError)]
-    pub fn new(config: Config, tls: C, nconn: usize) -> Self {
-        let manager = PostgresConnectionManager::new(config, tls);
-        let pool = Pool::builder().max_size(nconn as u32).build(manager)?;
-
+    pub fn new(config: Config, tls: C, nconn: usize, pool: Option<Arc<Pool<PgManager<C>>>>) -> Self {
+        let pool = match pool {
+            Some(p) => p,
+            None => {
+                let manager = PostgresConnectionManager::new(config, tls);
+                Arc::new(Pool::builder().max_size(nconn as u32).build(manager)?)
+            }
+        };
         Self {
             pool,
             origin_query: None,

@@ -22,11 +22,12 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{Row, Rows, Statement};
 use sqlparser::dialect::SQLiteDialect;
 use std::convert::TryFrom;
+use std::sync::Arc;
 pub use typesystem::SQLiteTypeSystem;
 use urlencoding::decode;
 
 pub struct SQLiteSource {
-    pool: Pool<SqliteConnectionManager>,
+    pool: Arc<Pool<SqliteConnectionManager>>,
     origin_query: Option<String>,
     queries: Vec<CXQuery<String>>,
     names: Vec<String>,
@@ -35,14 +36,16 @@ pub struct SQLiteSource {
 
 impl SQLiteSource {
     #[throws(SQLiteSourceError)]
-    pub fn new(conn: &str, nconn: usize) -> Self {
-        let decoded_conn = decode(conn)?.into_owned();
-        debug!("decoded conn: {}", decoded_conn);
-        let manager = SqliteConnectionManager::file(decoded_conn);
-        let pool = r2d2::Pool::builder()
-            .max_size(nconn as u32)
-            .build(manager)?;
-
+    pub fn new(conn: &str, nconn: usize, pool: Option<Arc<Pool<SqliteConnectionManager>>>) -> Self {
+        let pool = match pool {
+            Some(p) => p,
+            None => {
+                let decoded_conn = decode(conn)?.into_owned();
+                debug!("decoded conn: {}", decoded_conn);
+                let manager = SqliteConnectionManager::file(decoded_conn);
+                Arc::new(r2d2::Pool::builder().max_size(nconn as u32).build(manager)?)
+            }
+        };
         Self {
             pool,
             origin_query: None,

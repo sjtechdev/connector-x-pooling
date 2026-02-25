@@ -92,7 +92,7 @@
 //! use connectorx::prelude::*;
 //!
 //! let mut destination = ArrowDestination::new();
-//! let source = SQLiteSource::new("/path/to/db", 10).expect("cannot create the source");
+//! let source = SQLiteSource::new("/path/to/db", 10, None).expect("cannot create the source");
 //! let queries = &["SELECT * FROM db WHERE id < 100", "SELECT * FROM db WHERE id >= 100"];
 //! let dispatcher = Dispatcher::<SQLiteSource, ArrowDestination, SQLiteArrowTransport>::new(source, &mut destination, queries, None);
 //! dispatcher.run().expect("run failed");
@@ -108,7 +108,7 @@
 //!
 //! let mut source_conn = SourceConn::try_from("postgresql://username:password@host:port/db?cxprotocol=binary").expect("parse conn str failed");
 //! let queries = &[CXQuery::from("SELECT * FROM table WHERE id < 100"), CXQuery::from("SELECT * FROM table WHERE id >= 100")];
-//! let destination = get_arrow(&source_conn, None, queries).expect("run failed");
+//! let destination = get_arrow(&source_conn, None, queries, None, None).expect("run failed");
 //!
 //! let data = destination.arrow();
 //! ```
@@ -141,6 +141,7 @@
 //! For example, if you'd like to load data from Postgres to Arrow, you can enable `src_postgres` and `dst_arrow` in `Cargo.toml`.
 //! This will enable [`sources::postgres`], [`destinations::arrow`] and [`transports::PostgresArrowTransport`].
 
+pub mod pool;
 pub mod typesystem;
 #[macro_use]
 mod macros;

@@ -51,7 +51,13 @@ pub fn run(
                         .as_ref()
                         .unwrap();
 
-                    let destination = get_arrow(source_conn, None, queries.as_slice(), None)?;
+                    let destination = get_arrow(
+                        source_conn,
+                        None,
+                        queries.as_slice(),
+                        None,
+                        None,
+                    )?;
                     let rbs = destination.arrow()?;
 
                     let provider = MemTable::try_new(rbs[0].schema(), vec![rbs])?;
