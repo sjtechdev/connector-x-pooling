@@ -1,6 +1,6 @@
 use connectorx::{
     partition::{partition, PartitionQuery},
-    pool::PoolVariant,
+    pool::{PoolConfig, PoolVariant},
     source_router::parse_source,
     sql::CXQuery,
 };
@@ -73,7 +73,10 @@ pub fn read_sql<'py>(
     // or create one from the connection string (returns None for MSSQL/BigQuery/Trino).
     let inner_pool: Option<PoolVariant> = match pool {
         Some(p) => p.get_pool_variant(),
-        None => PoolVariant::from_source_conn(&source_conn, queries.len() as u32)
+        None => PoolVariant::from_source_conn(
+            &source_conn,
+            &PoolConfig { max_size: queries.len() as u32, ..Default::default() },
+        )
             .map_err(ConnectorXPythonError::Other)?,
     };
     let pool_ref = inner_pool.as_ref();
