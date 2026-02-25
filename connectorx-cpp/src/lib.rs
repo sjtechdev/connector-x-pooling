@@ -182,10 +182,6 @@ pub unsafe extern "C" fn connectorx_scan(conn: *const c_char, query: *const c_ch
         &[CXQuery::from(query_str)],
         None,
         None,
-        None,
-        None,
-        None,
-        None,
     )
         .unwrap()
         .arrow()
@@ -296,10 +292,6 @@ pub unsafe extern "C" fn connectorx_scan_iter(
             None,
             query_vec.as_slice(),
             batch_size,
-            None,
-            None,
-            None,
-            None,
             None,
             None,
         );
