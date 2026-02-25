@@ -1,9 +1,9 @@
 {
-    "name": "ConnectorX Development",
+    "name": "ConnectorX Pooling Development",
     "dockerComposeFile": [
         "docker-compose.yml"
     ],
-    "service": "connectorx",
+    "service": "connectorx_pooling",
     "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
     "customizations": {
         "vscode": {

@@ -4,9 +4,9 @@ description = "Load data from databases to dataframes, the fastest way."
 documentation = "https://docs.rs/connectorx"
 edition = "2018"
 license = "MIT"
-name = "connectorx"
+name = "connectorx-pooling"
 readme = "../README.md"
-repository = "https://github.com/sfu-db/connector-x"
+repository = "https://github.com/sjtechdev/connector-x-pooling"
 version = "0.4.5"
 
 [dependencies]

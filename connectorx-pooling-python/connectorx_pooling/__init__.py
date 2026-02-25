@@ -7,7 +7,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Literal, TYPE_CHECKING, overload, Generic, TypeVar
 
-from .connectorx import (
+from .connectorx_pooling import (
     read_sql as _read_sql,
     partition_sql as _partition_sql,
     read_sql2 as _read_sql2,
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
     # only for typing hints
-    from .connectorx import _DataframeInfos, _ArrowInfos
+    from .connectorx_pooling import _DataframeInfos, _ArrowInfos
 
 
 __version__ = version(__name__)
@@ -34,7 +34,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 # check whether it is in development env or installed
 if (
     not os.path.basename(os.path.abspath(os.path.join(dir_path, "..")))
-    == "connectorx-python"
+    == "connectorx-pooling-python"
 ):
     os.environ.setdefault("J4RS_BASE_PATH", os.path.join(dir_path, "dependencies"))
 
@@ -147,7 +147,7 @@ def read_sql_pandas(
     Read a DataFrame from a SQL query using a single thread:
 
     >>> # from pandas import read_sql
-    >>> from connectorx import read_sql_pandas as read_sql
+    >>> from connectorx_pooling import read_sql_pandas as read_sql
     >>> postgres_url = "postgresql://username:password@server:port/database"
     >>> query = "SELECT * FROM lineitem"
     >>> read_sql(query, postgres_url)

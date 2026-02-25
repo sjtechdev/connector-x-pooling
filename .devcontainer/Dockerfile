@@ -25,4 +25,4 @@ RUN rustup component add rustfmt clippy \
 
 # Set environment variables
 ENV PATH="/home/vscode/.local/bin:${PATH}"
-ENV PYTHONPATH="/workspaces/connector-x:${PYTHONPATH}"
+ENV PYTHONPATH="/workspaces/connector-x-pooling:${PYTHONPATH}"

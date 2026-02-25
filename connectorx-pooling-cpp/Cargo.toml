@@ -1,5 +1,5 @@
 [package]
-name = "connectorx-cpp"
+name = "connectorx-pooling-cpp"
 version = "0.4.5"
 edition = "2021"
 license = "MIT"
@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 libc = "0.2"
-connectorx = {path = "../connectorx", default-features = false}
+connectorx = {package = "connectorx-pooling", path = "../connectorx-pooling", default-features = false}
 arrow = {workspace = true}
 openssl = {version = "0.10", features = ["vendored"]}
 

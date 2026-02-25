@@ -52,7 +52,7 @@ jobs:
         with:
           rust-toolchain: stable
           command: build
-          args: -m connectorx-python/Cargo.toml -i python --release --manylinux 2_28 --features integrated-auth-gssapi
+          args: -m connectorx-pooling-python/Cargo.toml -i python --release --manylinux 2_28 --features integrated-auth-gssapi
           before-script-linux: |
             # If we're running on rhel centos, install needed packages.
             if command -v yum &> /dev/null; then
@@ -73,7 +73,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: "linux-${{matrix.platform.arch}}-${{ matrix.python-version[1] }}"
-          path: connectorx-python/target/wheels/*.whl
+          path: connectorx-pooling-python/target/wheels/*.whl
 
   win-and-mac:
     runs-on: ${{ matrix.os }}
@@ -117,14 +117,14 @@ jobs:
           rust-toolchain: stable
           maturin-version: v0.14.15
           command: build
-          args: -m connectorx-python/Cargo.toml -i python --release ${{ matrix.features }}
+          args: -m connectorx-pooling-python/Cargo.toml -i python --release ${{ matrix.features }}
         env:
           SQLITE3_STATIC: 1
 
       - uses: actions/upload-artifact@v6
         with:
           name: "${{ matrix.os }}-${{ matrix.python-version }}"
-          path: connectorx-python/target/wheels/*.whl
+          path: connectorx-pooling-python/target/wheels/*.whl
 
   apple-arm:
     runs-on: macos-latest
@@ -164,14 +164,14 @@ jobs:
           rust-toolchain: stable
           maturin-version: v0.14.15
           command: build
-          args: -m connectorx-python/Cargo.toml --target aarch64-apple-darwin -i python --release  --features integrated-auth-gssapi
+          args: -m connectorx-pooling-python/Cargo.toml --target aarch64-apple-darwin -i python --release  --features integrated-auth-gssapi
         env:
           SQLITE3_STATIC: 1
 
       - uses: actions/upload-artifact@v6
         with:
           name: "macos-arm-${{ matrix.python-version }}"
-          path: connectorx-python/target/wheels/*.whl
+          path: connectorx-pooling-python/target/wheels/*.whl
 
   verify:
     runs-on: ${{ matrix.os }}
@@ -208,7 +208,7 @@ jobs:
 
       - run: |
           pip install *.whl
-          python -c "import connectorx"
+          python -c "import connectorx_pooling"
 
   upload:
     runs-on: ubuntu-latest
