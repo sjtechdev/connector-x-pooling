@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
-from connectorx import ConnectionUrl
+from .. import ConnectionUrl
 
 from .. import read_sql
 
