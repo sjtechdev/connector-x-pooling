@@ -90,7 +90,11 @@ impl OracleSource {
             None => {
                 let connector = connect_oracle(&conn_url)?;
                 let manager = OracleConnectionManager::from_connector(connector);
-                Arc::new(r2d2::Pool::builder().max_size(nconn as u32).build(manager)?)
+                Arc::new(
+                    r2d2::Pool::builder()
+                        .max_size(nconn as u32)
+                        .build(manager)?,
+                )
             }
         };
         Self {

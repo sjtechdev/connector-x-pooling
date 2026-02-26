@@ -36,7 +36,7 @@ fn load_and_parse() {
 
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let mut source = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 1).unwrap();
+    let mut source = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 1, None).unwrap();
     source.set_queries(&[CXQuery::naked("select * from test_table")]);
     source.fetch_metadata().unwrap();
 
@@ -89,7 +89,7 @@ fn load_and_parse_csv() {
 
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let mut source = PostgresSource::<CSVProtocol, NoTls>::new(config, NoTls, 1).unwrap();
+    let mut source = PostgresSource::<CSVProtocol, NoTls>::new(config, NoTls, 1, None).unwrap();
     source.set_queries(&[CXQuery::naked("select * from test_table")]);
     source.fetch_metadata().unwrap();
 
@@ -146,7 +146,7 @@ fn test_postgres_binary() {
     ];
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let builder = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 2).unwrap();
+    let builder = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 2, None).unwrap();
     let mut destination = ArrowDestination::new();
     let dispatcher = Dispatcher::<_, _, PostgresArrowTransport<BinaryProtocol, NoTls>>::new(
         builder,
@@ -173,7 +173,7 @@ fn test_postgres_csv() {
     ];
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let builder = PostgresSource::<CSVProtocol, NoTls>::new(config, NoTls, 2).unwrap();
+    let builder = PostgresSource::<CSVProtocol, NoTls>::new(config, NoTls, 2, None).unwrap();
     let mut dst = ArrowDestination::new();
     let dispatcher = Dispatcher::<_, _, PostgresArrowTransport<CSVProtocol, NoTls>>::new(
         builder, &mut dst, &queries, None,
@@ -197,7 +197,7 @@ fn test_postgres_cursor() {
     ];
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let builder = PostgresSource::<CursorProtocol, NoTls>::new(config, NoTls, 2).unwrap();
+    let builder = PostgresSource::<CursorProtocol, NoTls>::new(config, NoTls, 2, None).unwrap();
     let mut dst = ArrowDestination::new();
     let dispatcher = Dispatcher::<_, _, PostgresArrowTransport<CursorProtocol, NoTls>>::new(
         builder, &mut dst, &queries, None,
@@ -221,7 +221,7 @@ fn test_postgres_simple() {
     ];
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let builder = PostgresSource::<SimpleProtocol, NoTls>::new(config, NoTls, 2).unwrap();
+    let builder = PostgresSource::<SimpleProtocol, NoTls>::new(config, NoTls, 2, None).unwrap();
     let mut dst = ArrowDestination::new();
     let dispatcher = Dispatcher::<_, _, PostgresArrowTransport<SimpleProtocol, NoTls>>::new(
         builder, &mut dst, &queries, None,
@@ -329,7 +329,7 @@ fn test_postgres_agg() {
 
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let builder = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 1).unwrap();
+    let builder = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 1, None).unwrap();
     let mut destination = ArrowDestination::new();
     let dispatcher = Dispatcher::<_, _, PostgresArrowTransport<BinaryProtocol, NoTls>>::new(
         builder,
@@ -371,7 +371,7 @@ macro_rules! test_types {
         let queries = [CXQuery::naked($sql)];
         let url = Url::parse(dburl.as_str()).unwrap();
         let (config, _tls) = rewrite_tls_args(&url).unwrap();
-        let builder = PostgresSource::<$P, NoTls>::new(config, NoTls, 2).unwrap();
+        let builder = PostgresSource::<$P, NoTls>::new(config, NoTls, 2, None).unwrap();
         let mut destination = ArrowDestination::new();
         let dispatcher = Dispatcher::<_, _, PostgresArrowTransport<$P, NoTls>>::new(
             builder,
@@ -1171,7 +1171,7 @@ fn test_postgres_pre_execution_queries() {
 
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let builder = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 2).unwrap();
+    let builder = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 2, None).unwrap();
     let mut destination = ArrowDestination::new();
     let mut dispatcher = Dispatcher::<_, _, PostgresArrowTransport<BinaryProtocol, NoTls>>::new(
         builder,
@@ -1214,7 +1214,7 @@ fn test_postgres_partitioned_pre_execution_queries() {
 
     let url = Url::parse(dburl.as_str()).unwrap();
     let (config, _tls) = rewrite_tls_args(&url).unwrap();
-    let builder = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 2).unwrap();
+    let builder = PostgresSource::<BinaryProtocol, NoTls>::new(config, NoTls, 2, None).unwrap();
     let mut destination = ArrowDestination::new();
     let mut dispatcher = Dispatcher::<_, _, PostgresArrowTransport<BinaryProtocol, NoTls>>::new(
         builder,

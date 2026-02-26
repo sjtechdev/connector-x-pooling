@@ -148,7 +148,12 @@ where
     <C::TlsConnect as TlsConnect<Socket>>::Future: Send,
 {
     #[throws(PostgresSourceError)]
-    pub fn new(config: Config, tls: C, nconn: usize, pool: Option<Arc<Pool<PgManager<C>>>>) -> Self {
+    pub fn new(
+        config: Config,
+        tls: C,
+        nconn: usize,
+        pool: Option<Arc<Pool<PgManager<C>>>>,
+    ) -> Self {
         let pool = match pool {
             Some(p) => p,
             None => {

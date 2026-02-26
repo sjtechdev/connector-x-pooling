@@ -24,16 +24,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(feature = "src_mysql")]
-use r2d2_mysql::MySqlConnectionManager;
-#[cfg(feature = "src_mysql")]
 use r2d2_mysql::mysql::{Opts, OptsBuilder};
+#[cfg(feature = "src_mysql")]
+use r2d2_mysql::MySqlConnectionManager;
 
-#[cfg(feature = "src_postgres")]
-use r2d2_postgres::PostgresConnectionManager;
 #[cfg(feature = "src_postgres")]
 use postgres::NoTls;
 #[cfg(feature = "src_postgres")]
 use postgres_openssl::MakeTlsConnector;
+#[cfg(feature = "src_postgres")]
+use r2d2_postgres::PostgresConnectionManager;
 
 #[cfg(feature = "src_sqlite")]
 use r2d2_sqlite::SqliteConnectionManager;
@@ -55,8 +55,8 @@ impl Default for PoolConfig {
     fn default() -> Self {
         Self {
             max_size: 10,
-            idle_timeout: Some(Duration::from_secs(300)),      // 5 minutes
-            max_lifetime: Some(Duration::from_secs(1800)),     // 30 minutes
+            idle_timeout: Some(Duration::from_secs(300)), // 5 minutes
+            max_lifetime: Some(Duration::from_secs(1800)), // 30 minutes
             connection_timeout: Duration::from_secs(30),
             test_on_check_out: true,
         }
@@ -107,9 +107,9 @@ impl PoolVariant {
         match source_conn.ty {
             #[cfg(feature = "src_mysql")]
             SourceType::MySQL => {
-                let manager = MySqlConnectionManager::new(
-                    OptsBuilder::from_opts(Opts::from_url(source_conn.conn.as_str())?),
-                );
+                let manager = MySqlConnectionManager::new(OptsBuilder::from_opts(Opts::from_url(
+                    source_conn.conn.as_str(),
+                )?));
                 let pool = configure_builder(Pool::builder(), config).build(manager)?;
                 Ok(Some(PoolVariant::MySQL(Arc::new(pool))))
             }
@@ -143,8 +143,7 @@ impl PoolVariant {
             #[cfg(feature = "src_oracle")]
             SourceType::Oracle => {
                 use crate::sources::oracle::connect_oracle;
-                let connector = connect_oracle(&source_conn.conn)
-                    .map_err(anyhow::Error::from)?;
+                let connector = connect_oracle(&source_conn.conn).map_err(anyhow::Error::from)?;
                 let manager = OracleConnectionManager::from_connector(connector);
                 let pool = configure_builder(Pool::builder(), config).build(manager)?;
                 Ok(Some(PoolVariant::Oracle(Arc::new(pool))))

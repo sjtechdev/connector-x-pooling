@@ -28,7 +28,7 @@ static START: Once = Once::new();
 // }
 
 #[pymodule]
-fn connectorx(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn connectorx_pooling(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     START.call_once(|| {
         let _ = env_logger::try_init();
     });

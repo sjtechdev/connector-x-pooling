@@ -914,7 +914,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "connectorx"
+name = "connectorx-pooling"
 version = "0.4.5"
 dependencies = [
  "anyhow",
@@ -967,7 +967,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "connectorx-python"
+name = "connectorx-pooling-python"
 version = "0.4.5"
 dependencies = [
  "anyhow",
@@ -976,7 +976,7 @@ dependencies = [
  "built",
  "bytes",
  "chrono",
- "connectorx",
+ "connectorx-pooling",
  "criterion",
  "criterion-macro",
  "env_logger",

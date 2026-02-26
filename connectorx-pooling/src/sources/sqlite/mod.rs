@@ -43,7 +43,11 @@ impl SQLiteSource {
                 let decoded_conn = decode(conn)?.into_owned();
                 debug!("decoded conn: {}", decoded_conn);
                 let manager = SqliteConnectionManager::file(decoded_conn);
-                Arc::new(r2d2::Pool::builder().max_size(nconn as u32).build(manager)?)
+                Arc::new(
+                    r2d2::Pool::builder()
+                        .max_size(nconn as u32)
+                        .build(manager)?,
+                )
             }
         };
         Self {

@@ -63,7 +63,11 @@ impl<P> MySQLSource<P> {
             None => {
                 let manager =
                     MySqlConnectionManager::new(OptsBuilder::from_opts(Opts::from_url(conn)?));
-                Arc::new(r2d2::Pool::builder().max_size(nconn as u32).build(manager)?)
+                Arc::new(
+                    r2d2::Pool::builder()
+                        .max_size(nconn as u32)
+                        .build(manager)?,
+                )
             }
         };
         Self {
