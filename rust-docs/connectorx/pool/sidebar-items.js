@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PoolVariant"],"fn":["configure_builder"],"struct":["PoolConfig"]};
