@@ -7,15 +7,15 @@ build-debug:
     cargo build --features all
 
 build-cpp +ARGS="":
-    cd connectorx-cpp && cargo build {{ARGS}}
+    cd connectorx-pooling-cpp && cargo build {{ARGS}}
 
 build-cpp-release +ARGS="":
-    cd connectorx-cpp && cargo build --release {{ARGS}}
+    cd connectorx-pooling-cpp && cargo build --release {{ARGS}}
 
-test +ARGS="": 
+test +ARGS="":
     cargo test --features all {{ARGS}} -- --nocapture
 
-test-ci: 
+test-ci:
     cargo test --features src_postgres --features dst_arrow --test test_postgres
     cargo test --features src_postgres --features src_dummy --features dst_polars --test test_polars
 
@@ -30,24 +30,24 @@ test-feature-gate:
 
 cleanup:
     cargo clean
-    cd connectorx-python && cargo clean
-    rm connectorx-python/connectorx/connectorx*.so
+    cd connectorx-pooling-python && cargo clean
+    rm connectorx-pooling-python/connectorx_pooling/connectorx_pooling*.so
 
 bootstrap-python:
-    cd connectorx-python && poetry install
+    cd connectorx-pooling-python && poetry install
 
 setup-java:
     cd $ACCIO_PATH/rewriter && mvn package -Dmaven.test.skip=true
-    cp -f $ACCIO_PATH/rewriter/target/accio-rewriter-1.0-SNAPSHOT-jar-with-dependencies.jar connectorx-python/connectorx/dependencies/federated-rewriter.jar
+    cp -f $ACCIO_PATH/rewriter/target/accio-rewriter-1.0-SNAPSHOT-jar-with-dependencies.jar connectorx-pooling-python/connectorx_pooling/dependencies/federated-rewriter.jar
 
 setup-python:
-    cd connectorx-python && poetry run maturin develop --release
-    
+    cd connectorx-pooling-python && poetry run maturin develop --release
+
 test-python +opts="": setup-python
-    cd connectorx-python && poetry run pytest connectorx/tests -v -s {{opts}}
+    cd connectorx-pooling-python && poetry run pytest connectorx_pooling/tests -v -s {{opts}}
 
 test-python-s +opts="":
-    cd connectorx-python && poetry run pytest connectorx/tests -v -s {{opts}}
+    cd connectorx-pooling-python && poetry run pytest connectorx_pooling/tests -v -s {{opts}}
 
 seed-db:
     #!/bin/bash
@@ -65,52 +65,52 @@ seed-db-more:
     mysql --protocol tcp -h$MARIADB_HOST -P$MARIADB_PORT -u$MARIADB_USER -p$MARIADB_PASSWORD $MARIADB_DB < scripts/mysql.sql
     trino $TRINO_URL --catalog=$TRINO_CATALOG < scripts/trino.sql
 
-# benches 
+# benches
 flame-tpch conn="POSTGRES_URL":
-    cd connectorx-python && PYO3_PYTHON=$HOME/.pyenv/versions/3.8.6/bin/python3.8 PYTHONPATH=$HOME/.pyenv/versions/conn/lib/python3.8/site-packages LD_LIBRARY_PATH=$HOME/.pyenv/versions/3.8.6/lib/ cargo run --no-default-features --features executable --features fptr --features nbstr --features dsts --features srcs --release --example flame_tpch {{conn}}
+    cd connectorx-pooling-python && PYO3_PYTHON=$HOME/.pyenv/versions/3.8.6/bin/python3.8 PYTHONPATH=$HOME/.pyenv/versions/conn/lib/python3.8/site-packages LD_LIBRARY_PATH=$HOME/.pyenv/versions/3.8.6/lib/ cargo run --no-default-features --features executable --features fptr --features nbstr --features dsts --features srcs --release --example flame_tpch {{conn}}
 
 build-tpch:
-    cd connectorx-python && cargo build --no-default-features --features executable --features fptr --release --example tpch
+    cd connectorx-pooling-python && cargo build --no-default-features --features executable --features fptr --release --example tpch
 
 cachegrind-tpch: build-tpch
     valgrind --tool=cachegrind target/release/examples/tpch
 
 python-tpch name +ARGS="": setup-python
     #!/bin/bash
-    export PYTHONPATH=$PWD/connectorx-python
-    cd connectorx-python && \
+    export PYTHONPATH=$PWD/connectorx-pooling-python
+    cd connectorx-pooling-python && \
     poetry run python ../benchmarks/tpch-{{name}}.py {{ARGS}}
 
 python-tpch-ext name +ARGS="":
-    cd connectorx-python && poetry run python ../benchmarks/tpch-{{name}}.py {{ARGS}}
+    cd connectorx-pooling-python && poetry run python ../benchmarks/tpch-{{name}}.py {{ARGS}}
 
 python-ddos name +ARGS="": setup-python
     #!/bin/bash
-    export PYTHONPATH=$PWD/connectorx-python
-    cd connectorx-python && \
+    export PYTHONPATH=$PWD/connectorx-pooling-python
+    cd connectorx-pooling-python && \
     poetry run python ../benchmarks/ddos-{{name}}.py {{ARGS}}
 
 python-ddos-ext name +ARGS="":
-    cd connectorx-python && poetry run python ../benchmarks/ddos-{{name}}.py {{ARGS}}
+    cd connectorx-pooling-python && poetry run python ../benchmarks/ddos-{{name}}.py {{ARGS}}
 
 
 python-shell:
-    cd connectorx-python && \
+    cd connectorx-pooling-python && \
     poetry run ipython
 
 benchmark-report: setup-python
-    cd connectorx-python && \
-    poetry run pytest connectorx/tests/benchmarks.py --benchmark-json ../benchmark.json
-    
+    cd connectorx-pooling-python && \
+    poetry run pytest connectorx_pooling/tests/benchmarks.py --benchmark-json ../benchmark.json
+
 # releases
 build-python-wheel:
-    cd connectorx-python && maturin build --release -i python
+    cd connectorx-pooling-python && maturin build --release -i python
 
 # release with federation enabled
 build-python-wheel-fed:
     # need to get the j4rs dependency first
-    cd connectorx-python && maturin build --release -i python
+    cd connectorx-pooling-python && maturin build --release -i python
     # copy files
-    cp -rf connectorx-python/target/release/jassets connectorx-python/connectorx/dependencies
+    cp -rf connectorx-pooling-python/target/release/jassets connectorx-pooling-python/connectorx_pooling/dependencies
     # build final wheel
-    cd connectorx-python && maturin build --release -i python
+    cd connectorx-pooling-python && maturin build --release -i python

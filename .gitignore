@@ -2,7 +2,7 @@
 .DS_Store
 **/target
 .vscode
-connectorx-python/connectorx/*.so
+connectorx-pooling-python/connectorx_pooling/*.so
 __pycache__
 .python-version
 .idea/
@@ -18,7 +18,7 @@ dist
 *.db
 benchmark.json
 docs/_build
-connectorx/examples/test.rs
+connectorx-pooling/examples/test.rs
 *.duckdb
 federated-query/
 flake.nix

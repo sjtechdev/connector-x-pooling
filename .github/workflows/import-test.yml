@@ -40,9 +40,9 @@ jobs:
           version='${{ github.event.inputs.version }}'
           if [ -z $version ]
           then
-            pip install --index-url ${{ github.event.inputs.indexUrl }} connectorx
+            pip install --index-url ${{ github.event.inputs.indexUrl }} connectorx-pooling
           else
-            pip install --index-url ${{ github.event.inputs.indexUrl }} connectorx==$version
+            pip install --index-url ${{ github.event.inputs.indexUrl }} connectorx-pooling==$version
           fi
 
       - name: Install ConnectorX - Windows
@@ -52,10 +52,10 @@ jobs:
 
           $version = '${{ github.event.inputs.version }}'
           if ($version) {
-            pip install --index-url ${{ github.event.inputs.indexUrl }} connectorx==$version
-          } else { 
-            pip install --index-url ${{ github.event.inputs.indexUrl }} connectorx
+            pip install --index-url ${{ github.event.inputs.indexUrl }} connectorx-pooling==$version
+          } else {
+            pip install --index-url ${{ github.event.inputs.indexUrl }} connectorx-pooling
           }
 
       - name: Import
-        run: python -c "from connectorx import read_sql"
+        run: python -c "from connectorx_pooling import read_sql"

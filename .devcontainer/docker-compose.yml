@@ -1,29 +1,29 @@
 services:
-  connectorx:
+  connectorx_pooling:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
     volumes:
-      - ..:/workspaces/connectorx:cached
+      - ..:/workspaces/connectorx_pooling:cached
     command: sleep infinity
     depends_on:
       - postgres
       - mysql
     networks:
-      - connectorx-network
+      - connectorx-pooling-network
 
   postgres:
     image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: connectorx
+      POSTGRES_DB: connectorx_pooling
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - connectorx-network
+      - connectorx-pooling-network
 
   mysql:
     image: ghcr.io/wangxiaoying/mysql:latest
@@ -36,13 +36,12 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
-      - connectorx-network
+      - connectorx-pooling-network
 
 networks:
-  connectorx-network:
+  connectorx-pooling-network:
     driver: bridge
 
 volumes:
   postgres_data:
   mysql_data:
-    
