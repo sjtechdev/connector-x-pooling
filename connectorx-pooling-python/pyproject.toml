@@ -18,7 +18,7 @@ license = "MIT"
 maintainers = ["Weiyuan Wu <youngw@sfu.ca>"] 
 name = "connectorx-pooling"
 readme = "README.md" # Markdown files are supported
-version = "0.4.5" 
+version = "0.5.0" 
 
 [project]
 name = "connectorx-pooling" # Target file name of maturin build
