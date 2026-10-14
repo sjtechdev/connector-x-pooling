@@ -525,10 +525,10 @@ BibTeX entry:
 		</tr>
 		<tr>
             <td align="center">
-                <a href="https://github.com/zemelLeong">
-                    <img src="https://avatars.githubusercontent.com/u/26835087?v=4" width="66;" alt="zemelLeong"/>
+                <a href="https://github.com/knota-lab">
+                    <img src="https://avatars.githubusercontent.com/u/26835087?v=4" width="66;" alt="knota-lab"/>
                     <br />
-                    <sub><b>zemel leong</b></sub>
+                    <sub><b>Knota Lab</b></sub>
                 </a>
             </td>
             <td align="center">
