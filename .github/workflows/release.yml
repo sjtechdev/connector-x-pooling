@@ -175,8 +175,9 @@ jobs:
 
   verify:
     runs-on: ${{ matrix.os }}
-    needs: [win-and-mac, linux]
+    needs: [win-and-mac, linux, apple-arm]
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         os:
@@ -206,7 +207,8 @@ jobs:
         with:
           name: "${{ matrix.artifact-prefix || matrix.os }}-${{ matrix.python-version }}"
 
-      - run: |
+      - shell: bash
+        run: |
           pip install *.whl
           python -c "import connectorx_pooling"
 
