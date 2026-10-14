@@ -13,6 +13,7 @@ pub struct PyConnectionPool {
     pool: Mutex<Option<PoolVariant>>,
     pub conn_str: String,
     max_size: u32,
+    min_idle: Option<u32>,
     #[pyo3(get)]
     pub default_protocol: String,
 }
@@ -21,7 +22,7 @@ pub struct PyConnectionPool {
 impl PyConnectionPool {
     /// Create a new connection pool
     #[new]
-    #[pyo3(signature = (conn, max_size=10, idle_timeout=300, max_lifetime=1800, connection_timeout=30, test_on_check_out=true))]
+    #[pyo3(signature = (conn, max_size=10, idle_timeout=300, max_lifetime=1800, connection_timeout=30, test_on_check_out=true, min_idle=None))]
     pub fn new(
         conn: &str,
         max_size: u32,
@@ -29,9 +30,11 @@ impl PyConnectionPool {
         max_lifetime: Option<u64>,
         connection_timeout: u64,
         test_on_check_out: bool,
+        min_idle: Option<u32>,
     ) -> PyResult<Self> {
         let config = PoolConfig {
             max_size,
+            min_idle,
             idle_timeout: idle_timeout.map(Duration::from_secs),
             max_lifetime: max_lifetime.map(Duration::from_secs),
             connection_timeout: Duration::from_secs(connection_timeout),
@@ -68,6 +71,7 @@ impl PyConnectionPool {
             pool: Mutex::new(Some(pool_variant)),
             conn_str: rewritten_conn,
             max_size,
+            min_idle,
             default_protocol,
         })
     }
@@ -88,6 +92,12 @@ impl PyConnectionPool {
     #[getter]
     pub fn max_size(&self) -> u32 {
         self.max_size
+    }
+
+    /// Get the minimum idle pool size (None means it defaults to max_size)
+    #[getter]
+    pub fn min_idle(&self) -> Option<u32> {
+        self.min_idle
     }
 
     /// Context manager support: __enter__

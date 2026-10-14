@@ -126,3 +126,25 @@ def test_pool_close_is_idempotent(sqlite_url: str):
     p.close()
     p.close()
     assert p.is_closed
+
+
+# ---------------------------------------------------------------------------
+# min_idle
+# ---------------------------------------------------------------------------
+
+
+def test_pool_min_idle_defaults_to_none(sqlite_url: str):
+    with ConnectionPool(sqlite_url, max_size=3) as p:
+        assert p.min_idle is None
+
+
+def test_pool_min_idle_zero_still_queries(sqlite_url: str):
+    with ConnectionPool(sqlite_url, max_size=3, min_idle=0) as p:
+        assert p.min_idle == 0
+        df = read_sql(p, "SELECT * FROM test_table")
+        assert len(df) > 0
+
+
+def test_pool_min_idle_exceeds_max_size_raises(sqlite_url: str):
+    with pytest.raises(Exception, match="min_idle"):
+        ConnectionPool(sqlite_url, max_size=2, min_idle=3)

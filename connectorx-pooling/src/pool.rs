@@ -45,6 +45,8 @@ use r2d2_oracle::OracleConnectionManager;
 #[derive(Debug, Clone)]
 pub struct PoolConfig {
     pub max_size: u32,
+    /// Minimum idle connections r2d2 keeps open. `None` means r2d2's default (`max_size`).
+    pub min_idle: Option<u32>,
     pub idle_timeout: Option<Duration>,
     pub max_lifetime: Option<Duration>,
     pub connection_timeout: Duration,
@@ -55,6 +57,7 @@ impl Default for PoolConfig {
     fn default() -> Self {
         Self {
             max_size: 10,
+            min_idle: None,
             idle_timeout: Some(Duration::from_secs(300)), // 5 minutes
             max_lifetime: Some(Duration::from_secs(1800)), // 30 minutes
             connection_timeout: Duration::from_secs(30),
@@ -70,6 +73,7 @@ pub fn configure_builder<M: r2d2::ManageConnection>(
 ) -> r2d2::Builder<M> {
     let mut builder = builder
         .max_size(config.max_size)
+        .min_idle(config.min_idle)
         .connection_timeout(config.connection_timeout);
     if let Some(timeout) = config.idle_timeout {
         builder = builder.idle_timeout(Some(timeout));
@@ -104,6 +108,15 @@ impl PoolVariant {
     /// support connection pooling (MSSQL, BigQuery, Trino).
     #[allow(unused_variables)]
     pub fn from_source_conn(source_conn: &SourceConn, config: &PoolConfig) -> Result<Option<Self>> {
+        // r2d2 panics on build if min_idle exceeds max_size; report it as an error instead.
+        if let Some(min_idle) = config.min_idle {
+            anyhow::ensure!(
+                min_idle <= config.max_size,
+                "min_idle ({}) must not exceed max_size ({})",
+                min_idle,
+                config.max_size
+            );
+        }
         match source_conn.ty {
             #[cfg(feature = "src_mysql")]
             SourceType::MySQL => {
@@ -235,5 +248,54 @@ impl PoolVariant {
                 self.variant_name()
             ),
         }
+    }
+}
+
+#[cfg(all(test, feature = "src_sqlite"))]
+mod tests {
+    use super::*;
+
+    fn sqlite_pool(config: &PoolConfig) -> Pool<SqliteConnectionManager> {
+        configure_builder(Pool::builder(), config)
+            .build(SqliteConnectionManager::memory())
+            .unwrap()
+    }
+
+    #[test]
+    fn min_idle_none_fills_pool_to_max_size() {
+        let config = PoolConfig {
+            max_size: 3,
+            ..Default::default()
+        };
+        assert_eq!(sqlite_pool(&config).state().connections, 3);
+    }
+
+    #[test]
+    fn min_idle_zero_opens_connections_on_demand() {
+        let config = PoolConfig {
+            max_size: 3,
+            min_idle: Some(0),
+            ..Default::default()
+        };
+        let pool = sqlite_pool(&config);
+        assert_eq!(pool.state().connections, 0);
+        let conn = pool.get().unwrap();
+        assert_eq!(pool.state().connections, 1);
+        drop(conn);
+        assert_eq!(pool.state().idle_connections, 1);
+    }
+
+    #[test]
+    fn min_idle_above_max_size_is_an_error() {
+        let source_conn = crate::source_router::parse_source("sqlite:///:memory:", None).unwrap();
+        let config = PoolConfig {
+            max_size: 2,
+            min_idle: Some(3),
+            ..Default::default()
+        };
+        let err = PoolVariant::from_source_conn(&source_conn, &config)
+            .err()
+            .expect("expected an error");
+        assert!(err.to_string().contains("min_idle"));
     }
 }
